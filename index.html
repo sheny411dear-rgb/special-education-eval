@@ -1,0 +1,712 @@
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { 
+  Users, 
+  ChevronDown, 
+  ChevronRight, 
+  FileText, 
+  CheckCircle2, 
+  MessageSquare, 
+  Layout, 
+  CheckSquare,
+  ClipboardCheck,
+  Info,
+  ListChecks,
+  AlertCircle,
+  CheckCircle,
+  FolderOpen,
+  Target,
+  Heart,
+  Edit3,
+  Save,
+  Map,
+  Lightbulb,
+  FileSearch
+} from 'lucide-react';
+
+const TEAM_MEMBERS = ["綉惠", "孟筑", "芳玉", "尹俞"];
+
+// 狀態配置與配色系統
+const STATUS_CONFIG = {
+  "待修正": { color: "text-red-600", bg: "bg-red-50", border: "border-red-200", icon: <AlertCircle size={16} /> },
+  "已上傳": { color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-200", icon: <FileText size={16} /> },
+  "已修正": { color: "text-orange-600", bg: "bg-orange-50", border: "border-orange-200", icon: <CheckCircle2 size={16} /> },
+  "通過": { color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-200", icon: <CheckCircle size={16} /> },
+  "無": { color: "text-[#5D4037]", bg: "bg-[#EFEBE9]", border: "border-[#D7CCC8]", icon: null }, 
+  "未上傳": { color: "text-slate-400", bg: "bg-slate-50", border: "border-slate-200", icon: null }
+};
+
+// 子元件：自動調整高度的文字框 (消除輪軸用)
+const AutoResizeTextarea = ({ value, onChange, placeholder, className }) => {
+  const textareaRef = useRef(null);
+
+  const adjustHeight = () => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = `${textarea.scrollHeight}px`;
+    }
+  };
+
+  useEffect(() => {
+    adjustHeight();
+  }, [value]);
+
+  return (
+    <textarea
+      ref={textareaRef}
+      className={`${className} overflow-hidden resize-none`}
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      rows={1}
+    />
+  );
+};
+
+const INITIAL_DATA = [
+  // 一、行政運作與融合教育
+  {
+    id: "1-4-1",
+    category: "一、行政運作與融合教育",
+    indicator: "指標 1-4：根據學生學習需求提供合理調整措施",
+    name: "合理調整運作機制，包括申請與協商程序。",
+    checkItems: ["合理調整之申請與協商程序，如：實施計畫、流程圖"],
+    prepData: "IEP",
+    prepDataExtra: "", 
+    overallStatus: "未完成",
+    memberStatus: { "綉惠": "未上傳", "孟筑": "未上傳", "芳玉": "未上傳", "尹俞": "未上傳" },
+    adminComment: "", 
+    note: "",
+    guide: { core: "", writing: "", presentation: "" }
+  },
+  {
+    id: "1-4-2",
+    category: "一、行政運作與融合教育",
+    indicator: "指標 1-4：根據學生學習需求提供合理調整措施",
+    name: "提供學生學習所需之合理調整措施並定期檢討。",
+    checkItems: ["合理調整措施及檢討會紀錄(明確寫出合理調整措施，無則免附)"],
+    prepData: "IEP & 會議紀錄",
+    prepDataExtra: "",
+    overallStatus: "未完成",
+    memberStatus: { "綉惠": "未上傳", "孟筑": "未上傳", "芳玉": "未上傳", "尹俞": "未上傳" },
+    adminComment: "",
+    note: "",
+    guide: { core: "", writing: "", presentation: "" }
+  },
+  {
+    id: "1-5-1",
+    category: "一、行政運作與融合教育",
+    indicator: "指標 1-5：校長協調相關資源，提供教師支持",
+    name: "校長協調校內各單位提供教師及特殊教育學生所需人力資源及協助。",
+    checkItems: [
+      "校長協調人力資源會議紀錄，具跨單位協調之具體事例。", 
+      "學生所需人力資源協助與支持，IEP會議、個案會議、跨專業團隊討論，展現資源協調成效等。"
+    ],
+    prepData: "IEP 會議紀錄、個案會議紀錄、相關紀錄",
+    prepDataExtra: "",
+    overallStatus: "未完成",
+    memberStatus: { "綉惠": "未上傳", "孟筑": "未上傳", "芳玉": "未上傳", "尹俞": "未上傳" },
+    adminComment: "",
+    note: "",
+    guide: { core: "", writing: "", presentation: "" }
+  },
+  {
+    id: "1-6-1",
+    category: "一、行政運作與融合教育",
+    indicator: "指標 1-6：建立普通及特殊教育交流合作機制",
+    name: "學校應建立學校內普特教師交流合作相關機制並落實執行。",
+    checkItems: ["學校建立交流合作機制之相關資料及執行紀錄（如：共同規劃課程、個案研討、辦理研習或座談等，至少擇一檢附）。"],
+    prepData: "校內社群簽到表、line圖、個案會議、特師參與普班活動",
+    prepDataExtra: "",
+    overallStatus: "未完成",
+    memberStatus: { "綉惠": "未上傳", "孟筑": "未上傳", "芳玉": "未上傳", "尹俞": "未上傳" },
+    adminComment: "",
+    note: "",
+    guide: { core: "", writing: "", presentation: "" }
+  },
+  // 二、教育計畫與團隊合作
+  {
+    id: "2-1-2",
+    category: "二、教育計畫與團隊合作",
+    indicator: "指標 2-1：建立校評估轉介流程，依規定轉介鑑定",
+    name: "在轉介身心障礙學生鑑定前，能提供轉介前介入。",
+    checkItems: ["轉介前介入及實施成效，如：一般教學輔導介入、三級輔導相關資料等。"],
+    prepData: "個案會議紀錄",
+    prepDataExtra: "",
+    overallStatus: "未完成",
+    memberStatus: { "綉惠": "未上傳", "孟筑": "未上傳", "芳玉": "未上傳", "尹俞": "未上傳" },
+    adminComment: "",
+    note: "",
+    guide: { core: "", writing: "", presentation: "" }
+  },
+  {
+    id: "2-2-1",
+    category: "二、教育計畫與團隊合作",
+    indicator: "指標 2-2：以專業團隊合作方式提供服務",
+    name: "學校根據學生個別特殊需求組成專業團隊，指派校內教師主責...並執行及追蹤 IEP。",
+    checkItems: ["專業團隊人員名單（含主責人員名單，每班至少 2 份、每位教師至少 1 份為原則）。"],
+    prepData: "IEP",
+    prepDataExtra: "",
+    overallStatus: "未完成",
+    memberStatus: { "綉惠": "未上傳", "孟筑": "未上傳", "芳玉": "未上傳", "尹俞": "未上傳" },
+    adminComment: "",
+    note: "",
+    guide: { core: "", writing: "", presentation: "" }
+  },
+  {
+    id: "2-2-2",
+    category: "二、教育計畫與團隊合作",
+    indicator: "指標 2-2：以專業團隊合作方式提供服務",
+    name: "專業團隊成員提供服務前告知，服務後應通知其結果。",
+    checkItems: [
+      "取得同意並邀請參加之佐證資料（如：通知單或 IEP 會議紀錄）。", 
+      "主責人員召開團隊討論之紀錄（如：簽到表、 IEP 會議/執行紀錄）。"
+    ],
+    prepData: "IEP & 會議紀錄、相關會議",
+    prepDataExtra: "",
+    overallStatus: "未完成",
+    memberStatus: { "綉惠": "未上傳", "孟筑": "未上傳", "芳玉": "未上傳", "尹俞": "未上傳" },
+    adminComment: "",
+    note: "",
+    guide: { core: "", writing: "", presentation: "" }
+  },
+  {
+    id: "2-3",
+    category: "二、教育計畫與團隊合作",
+    indicator: "指標 2-3：個別化教育計畫參與人員符合規定",
+    name: "學校依學生特殊需求透過團隊合作討論訂定IEP。",
+    checkItems: ["訂定 IEP 之簽到表、會議紀錄等", "邀請家長（法定代理人/實際照顧者）及學生本人參與。"],
+    prepData: "IEP & 會議紀錄",
+    prepDataExtra: "",
+    overallStatus: "未完成",
+    memberStatus: { "綉惠": "未上傳", "孟筑": "未上傳", "芳玉": "未上傳", "尹俞": "未上傳" },
+    adminComment: "",
+    note: "",
+    guide: { core: "", writing: "", presentation: "" }
+  },
+  {
+    id: "2-4-1",
+    category: "二、教育計畫與團隊合作",
+    indicator: "指標 2-4：個別化教育計畫訂定及內容符合規定",
+    name: "IEP 應於開學前訂定；轉學生於入學後一個月內訂定。",
+    checkItems: ["訂定及檢討 IEP 之簽到表、會議紀錄等（每班至少 2 份、每位教師至少 1 份）。"],
+    prepData: "IEP & 會議紀錄",
+    prepDataExtra: "",
+    overallStatus: "未完成",
+    memberStatus: { "綉惠": "未上傳", "孟筑": "未上傳", "芳玉": "未上傳", "尹俞": "未上傳" },
+    adminComment: "",
+    note: "",
+    guide: { core: "", writing: "", presentation: "" }
+  },
+  {
+    id: "2-4-2",
+    category: "二、教育計畫與團隊合作",
+    indicator: "指標 2-4：個別化教育計畫訂定及內容符合規定",
+    name: "每位特殊教育學生均有IEP，且內容項目符合規定。",
+    checkItems: ["內容項目符合特殊教育法施行細則第10條規定"],
+    prepData: "IEP",
+    prepDataExtra: "",
+    overallStatus: "未完成",
+    memberStatus: { "綉惠": "未上傳", "孟筑": "未上傳", "芳玉": "未上傳", "尹俞": "未上傳" },
+    adminComment: "",
+    note: "",
+    guide: { core: "", writing: "", presentation: "" }
+  },
+  // 三、課程教學與專業發展
+  {
+    id: "3-1-1",
+    category: "三、課程教學與專業發展",
+    indicator: "指標 3-1：特殊教育課程規劃符合法規及需求",
+    name: "特教課程應依學生需求彈性調整內容、歷程、環境、評量等。",
+    checkItems: [
+      "送特推會審議的課程規劃（含特需領域）。", 
+      "因應學生需求進行之課程調整實際作為（如：分組表、班級課表、課程計畫等）。"
+    ], // 已更新內容
+    prepData: "課程計畫、學生特殊教育需求與課程調整規劃彙整表、課表",
+    prepDataExtra: "",
+    overallStatus: "未完成",
+    memberStatus: { "綉惠": "未上傳", "孟筑": "未上傳", "芳玉": "未上傳", "尹俞": "未上傳" },
+    adminComment: "",
+    note: "",
+    guide: { core: "", writing: "", presentation: "" }
+  },
+  {
+    id: "3-1-2",
+    category: "三、課程教學與專業發展",
+    indicator: "指標 3-1：特殊教育課程規劃符合法規及需求",
+    name: "學校分散式資源班開設之領域及分組排課符合學生需求。",
+    checkItems: ["排課規範、計畫、會議紀錄 or 行政簽辦文件"],
+    prepData: "課表",
+    prepDataExtra: "",
+    overallStatus: "未完成",
+    memberStatus: { "綉惠": "未上傳", "孟筑": "未上傳", "芳玉": "未上傳", "尹俞": "未上傳" },
+    adminComment: "",
+    note: "",
+    guide: { core: "", writing: "", presentation: "" }
+  },
+  {
+    id: "3-3-1",
+    category: "三、課程教學與專業發展",
+    indicator: "指標 3-3：落實特殊教育學生課程調整",
+    name: "普通班教師參與 IEP討論，並依結果執行課程調整。",
+    checkItems: ["確認調整方式之會議紀錄", "普通班教師執行課程調整之檢核表"],
+    prepData: "IEP & 會議紀錄、成績單、普師填寫教助成效電子表",
+    prepDataExtra: "",
+    overallStatus: "未完成",
+    memberStatus: { "綉惠": "未上傳", "孟筑": "未上傳", "芳玉": "未上傳", "尹俞": "未上傳" },
+    adminComment: "",
+    note: "",
+    guide: { core: "", writing: "", presentation: "" }
+  },
+  // 四、支持服務與輔導轉銜
+  {
+    id: "4-1-1",
+    category: "四、支持服務與輔導轉銜",
+    indicator: "指標 4-1：根據學生能力及需求提供支持服務",
+    name: "支持服務及評量調整，經IEP 會議及特推會審議。",
+    checkItems: ["IEP 第二項：學生所需特殊教育、相關服務及支持策略"],
+    prepData: "IEP 會議紀錄、特推會議紀錄",
+    prepDataExtra: "",
+    overallStatus: "未完成",
+    memberStatus: { "綉惠": "未上傳", "孟筑": "未上傳", "芳玉": "未上傳", "尹俞": "未上傳" },
+    adminComment: "",
+    note: "",
+    guide: { core: "", writing: "", presentation: "" }
+  },
+  {
+    id: "4-1-2",
+    category: "四、支持服務與輔導轉銜",
+    indicator: "指標 4-1：根據學生能力及需求提供支持服務",
+    name: "提供身心障礙學生所需支持服務及評量調整措施。",
+    checkItems: ["提供支持服務及評量調整實際作為(如彙整表、實施計畫)"],
+    prepData: "IEP",
+    prepDataExtra: "",
+    overallStatus: "未完成",
+    memberStatus: { "綉惠": "未上傳", "孟筑": "未上傳", "芳玉": "未上傳", "尹俞": "未上傳" },
+    adminComment: "",
+    note: "",
+    guide: { core: "", writing: "", presentation: "" }
+  },
+  {
+    id: "4-3-2",
+    category: "四、支持服務與輔導轉銜",
+    indicator: "指標 4-3：建立輔導及特教合作機制",
+    name: "學校整合校內外專業人員，提供所需輔導服務及資源連結。",
+    checkItems: ["輔導服務之學生名單及相關資料(如輔導紀錄)"],
+    prepData: "學校含有輔導特生的相關紀錄",
+    prepDataExtra: "",
+    overallStatus: "未完成",
+    memberStatus: { "綉惠": "未上傳", "孟筑": "未上傳", "芳玉": "未上傳", "尹俞": "未上傳" },
+    adminComment: "",
+    note: "",
+    guide: { core: "", writing: "", presentation: "" }
+  },
+  {
+    id: "4-3-3",
+    category: "四、支持服務與輔導轉銜",
+    indicator: "指標 4-3：建立輔導及特教合作機制",
+    name: "個案會議納入行政人員、普通教師、特教教師...邀請家長參與。",
+    checkItems: ["個案會議佐證資料(簽到表及邀請家長通知)"],
+    prepData: "個案會議紀錄",
+    prepDataExtra: "",
+    overallStatus: "未完成",
+    memberStatus: { "綉惠": "未上傳", "孟筑": "未上傳", "芳玉": "未上傳", "尹俞": "未上傳" },
+    adminComment: "",
+    note: "",
+    guide: { core: "", writing: "", presentation: "" }
+  },
+  {
+    id: "4-4-1",
+    category: "四、支持服務與輔導轉銜",
+    indicator: "指標 4-4：根據學習需求辦理轉銜輔導服務",
+    name: "辦理跨教育階段或離校轉銜輔導服務。",
+    checkItems: ["轉銜輔導服務辦理情形(如：IEP 第五項)"],
+    prepData: "跨階段/轉學轉銜輔導服務",
+    prepDataExtra: "",
+    overallStatus: "未完成",
+    memberStatus: { "綉惠": "未上傳", "孟筑": "未上傳", "芳玉": "未上傳", "尹俞": "未上傳" },
+    adminComment: "",
+    note: "",
+    guide: { core: "", writing: "", presentation: "" }
+  },
+  {
+    id: "4-5-1",
+    category: "四、支持服務與輔導轉銜",
+    indicator: "指標 4-5：依法召開轉銜會議、通報與追蹤",
+    name: "依期程邀請人員召開轉銜會議、填寫特教通報網轉銜資料。",
+    checkItems: ["學生轉銜會議紀錄、通報轉銜接收時間紀錄"],
+    prepData: "轉銜會議",
+    prepDataExtra: "",
+    overallStatus: "未完成",
+    memberStatus: { "綉惠": "未上傳", "孟筑": "未上傳", "芳玉": "未上傳", "尹俞": "未上傳" },
+    adminComment: "",
+    note: "",
+    guide: { core: "", writing: "", presentation: "" }
+  }
+];
+
+const App = () => {
+  const [data, setData] = useState(INITIAL_DATA);
+  const [expandedSections, setExpandedSections] = useState(["一、行政運作與融合教育", "二、教育計畫與團隊合作", "三、課程教學與專業發展", "四、支持服務與輔導轉銜"]);
+  const [expandedItems, setExpandedItems] = useState(["1-4-1"]);
+  const [expandedGuideRows, setExpandedGuideRows] = useState({}); 
+  const [savingId, setSavingId] = useState(null);
+
+  const progress = useMemo(() => {
+    const totalItems = data.length;
+    const completedItems = data.filter(item => item.overallStatus === "已完成").length;
+    return totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
+  }, [data]);
+
+  const toggleSection = (category) => {
+    setExpandedSections(prev => 
+      prev.includes(category) ? prev.filter(s => s !== category) : [...prev, category]
+    );
+  };
+
+  const toggleItem = (itemId) => {
+    setExpandedItems(prev =>
+      prev.includes(itemId) ? prev.filter(id => id !== itemId) : [...prev, itemId]
+    );
+  };
+
+  const toggleGuideRow = (itemId, rowKey) => {
+    const compositeKey = `${itemId}-${rowKey}`;
+    setExpandedGuideRows(prev => ({
+      ...prev,
+      [compositeKey]: !prev[compositeKey]
+    }));
+  };
+
+  const updateMemberStatus = (itemId, member, newStatus) => {
+    setData(prev => prev.map(item => {
+      if (item.id === itemId) {
+        return { ...item, memberStatus: { ...item.memberStatus, [member]: newStatus } };
+      }
+      return item;
+    }));
+  };
+
+  const updateOverallStatus = (itemId, newStatus) => {
+    setData(prev => prev.map(item => {
+      if (item.id === itemId) {
+        return { ...item, overallStatus: newStatus };
+      }
+      return item;
+    }));
+  };
+
+  const updateText = (itemId, field, value) => {
+    setData(prev => prev.map(item => {
+      if (item.id === itemId) return { ...item, [field]: value };
+      return item;
+    }));
+  };
+
+  const updateGuide = (itemId, field, value) => {
+    setData(prev => prev.map(item => {
+      if (item.id === itemId) {
+        return { ...item, guide: { ...item.guide, [field]: value } };
+      }
+      return item;
+    }));
+  };
+
+  const handleSave = (itemId) => {
+    setSavingId(itemId);
+    setTimeout(() => setSavingId(null), 1500);
+  };
+
+  const categories = [...new Set(data.map(item => item.category))];
+
+  return (
+    <div className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans">
+      <div className="max-w-7xl mx-auto space-y-6">
+        
+        {/* Header Section */}
+        <header className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-center gap-6">
+          <div className="flex items-center gap-6">
+            <div className="w-16 h-16 bg-indigo-600 rounded-3xl flex items-center justify-center shadow-lg shadow-indigo-100 ring-4 ring-indigo-50">
+              <ClipboardCheck className="text-white" size={32} />
+            </div>
+            <div>
+              <h1 className="text-3xl font-black text-slate-800 tracking-tight">
+                特教評鑑指標協作系統 <span className="mx-2 text-slate-300 font-light">|</span> <span className="text-indigo-600">進度與資料彙整</span>
+              </h1>
+              <div className="flex items-center gap-4 mt-2 text-slate-500 text-base font-bold">
+                <span className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-4 py-1.5 rounded-full shadow-sm"><Users size={20} className="text-indigo-400" /> 團隊成員：{TEAM_MEMBERS.join('、')}</span>
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex flex-col items-end gap-2 min-w-[280px]">
+            <div className="flex justify-between w-full text-xs font-black text-slate-400 uppercase tracking-widest">
+              <span>全體總達成度 (效標已完成數)</span>
+              <span className="text-indigo-600 text-xl font-black">{progress}%</span>
+            </div>
+            <div className="w-full h-4 bg-slate-100 rounded-full overflow-hidden border border-slate-200 p-0.5 shadow-inner">
+              <div 
+                className="h-full bg-indigo-500 rounded-full transition-all duration-1000 ease-out shadow-sm" 
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          </div>
+        </header>
+
+        {/* Content Area */}
+        {categories.map(category => (
+          <div key={category} className="space-y-4">
+            <button 
+              onClick={() => toggleSection(category)}
+              className="flex items-center gap-4 w-full text-left py-3 px-3 hover:bg-white rounded-2xl transition-all group"
+            >
+              <div className={`p-2 rounded-xl transition-colors shadow-sm ${expandedSections.includes(category) ? 'bg-indigo-600 text-white' : 'bg-white text-slate-400 border border-slate-200'}`}>
+                {expandedSections.includes(category) ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+              </div>
+              <h2 className="text-2xl font-black text-slate-700 tracking-tight group-hover:text-indigo-600">{category}</h2>
+              <div className="flex-1 border-b-2 border-slate-200 border-dashed ml-4 opacity-40"></div>
+            </button>
+
+            {expandedSections.includes(category) && (
+              <div className="space-y-12 ml-6 border-l-4 border-indigo-200 pl-8 pb-4 mt-4">
+                {data.filter(item => item.category === category).map(item => (
+                  <div key={item.id} className="bg-white rounded-[2.5rem] shadow-sm border border-slate-200 overflow-hidden hover:shadow-2xl transition-all duration-300">
+                    
+                    <button 
+                      onClick={() => toggleItem(item.id)}
+                      className="w-full bg-slate-800 px-10 py-5 flex items-center justify-between hover:bg-slate-700 transition-colors"
+                    >
+                      <div className="flex items-center gap-5">
+                        <span className="flex items-center gap-2 bg-indigo-500 text-white text-sm font-black px-4 py-2 rounded-lg shadow-sm uppercase tracking-widest">
+                          ❤️ 指標 #{item.id}
+                        </span>
+                        <span className="text-xs font-bold text-slate-300 uppercase tracking-[0.2em] text-left">{item.indicator}</span>
+                      </div>
+                      <div className="text-slate-400">
+                        {expandedItems.includes(item.id) ? <ChevronDown size={24} /> : <ChevronRight size={24} />}
+                      </div>
+                    </button>
+
+                    {expandedItems.includes(item.id) && (
+                      <div className="flex flex-col animate-in fade-in slide-in-from-top-4 duration-500">
+                        
+                        <div className="flex flex-col lg:flex-row">
+                          <div className="flex-1 p-8 lg:p-12 space-y-10 bg-white border-b lg:border-b-0">
+                            <div className="space-y-8">
+                              <h3 className="text-3xl font-black text-slate-800 leading-tight tracking-tight">{item.name}</h3>
+                              <div className="bg-emerald-50 border-2 border-emerald-100 rounded-[2rem] p-8 space-y-6 shadow-sm">
+                                 <div className="flex items-center gap-3 text-emerald-800 font-black text-sm uppercase tracking-widest">
+                                   <ListChecks size={22} className="text-emerald-500" /> 檔案內容檢核清單 (核心準則)
+                                 </div>
+                                 <div className="grid gap-4">
+                                   {item.checkItems.map((check, idx) => (
+                                     <div key={idx} className="flex items-start gap-4 bg-white/70 p-5 rounded-2xl border border-emerald-100/50 text-base text-emerald-900 font-bold leading-relaxed shadow-sm">
+                                       <CheckSquare size={24} className="mt-0.5 text-emerald-500 flex-shrink-0" /> 
+                                       {check}
+                                     </div>
+                                   ))}
+                                 </div>
+                              </div>
+                            </div>
+
+                            <div className="space-y-6">
+                              <div className="bg-white border-l-[8px] border-amber-400 rounded-xl p-5 shadow-sm border border-slate-100 space-y-4">
+                                <div className="flex items-center gap-4">
+                                  <div className="p-2.5 bg-amber-50 rounded-lg text-amber-600 shadow-inner">
+                                    <FolderOpen size={20} />
+                                  </div>
+                                  <div className="flex-1">
+                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">準備資料：</div>
+                                    <div className="text-lg font-black text-slate-800 tracking-tight">{item.prepData}</div>
+                                  </div>
+                                </div>
+                                <div className="flex items-start gap-3 bg-slate-50 px-4 py-3 rounded-xl border border-slate-200 shadow-inner">
+                                  <Edit3 size={16} className="text-amber-500 shrink-0 mt-1" />
+                                  <textarea 
+                                    className="bg-transparent w-full text-sm font-bold text-slate-600 outline-none placeholder-slate-300 resize-none min-h-[60px]"
+                                    placeholder="在此輸入具體文件名稱補充或詳細說明..."
+                                    value={item.prepDataExtra}
+                                    onChange={(e) => updateText(item.id, 'prepDataExtra', e.target.value)}
+                                    rows="2"
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="relative group">
+                                <textarea 
+                                  className="w-full bg-amber-50/40 border-2 border-amber-100 rounded-[2rem] p-8 pl-16 text-base text-slate-700 font-bold placeholder-amber-400 focus:ring-4 focus:ring-amber-100 focus:border-amber-300 outline-none transition-all min-h-[140px] shadow-inner"
+                                  placeholder="在此輸入行政執行細節紀錄..."
+                                  value={item.note}
+                                  onChange={(e) => updateText(item.id, 'note', e.target.value)}
+                                />
+                                <div className="absolute top-8 left-6 text-amber-500 pointer-events-none opacity-60">
+                                  <FileText size={24} />
+                                </div>
+                                <div className="absolute top-3 right-8 text-xs font-black text-amber-600 opacity-40 uppercase tracking-widest">行政細節紀錄</div>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="lg:w-[520px] bg-slate-50 p-8 lg:p-12 border-l border-slate-200 space-y-10 flex flex-col relative">
+                            <div className="space-y-8 flex-1">
+                              <div className="flex justify-between items-center">
+                                <div className="flex items-center gap-3 text-slate-700 font-black text-sm uppercase tracking-widest">
+                                  <Users size={24} className="text-indigo-600" /> 各成員準備狀態
+                                </div>
+                                <div className={`flex items-center gap-2 border-2 rounded-full px-5 py-2 shadow-sm transition-all ${
+                                  item.overallStatus === '已完成' ? 'bg-emerald-50 border-emerald-400 text-emerald-700' : 
+                                  item.overallStatus === '進行中' ? 'bg-amber-50 border-amber-400 text-amber-700' : 'bg-white border-slate-200 text-slate-400'
+                                }`}>
+                                  <Target size={16} className={item.overallStatus === '已完成' ? 'animate-pulse' : ''} />
+                                  <span className="text-[11px] font-black uppercase tracking-tighter">效標總進度</span>
+                                  <select 
+                                    value={item.overallStatus}
+                                    onChange={(e) => updateOverallStatus(item.id, e.target.value)}
+                                    className="bg-transparent text-xs font-black outline-none cursor-pointer"
+                                  >
+                                    <option value="未完成">未完成</option>
+                                    <option value="進行中">進行中</option>
+                                    <option value="已完成">已完成</option>
+                                  </select>
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-5">
+                                {TEAM_MEMBERS.map(member => {
+                                  const status = item.memberStatus[member];
+                                  const config = STATUS_CONFIG[status] || STATUS_CONFIG["未上傳"];
+                                  return (
+                                    <div key={member} className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 space-y-4 hover:border-indigo-400 transition-all transform hover:-translate-y-1">
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-sm font-black text-slate-400 tracking-tight">{member} 老師</span>
+                                        <div className={`${config.color}`}>{config.icon}</div>
+                                      </div>
+                                      <div className="relative">
+                                        <select 
+                                          value={status}
+                                          onChange={(e) => updateMemberStatus(item.id, member, e.target.value)}
+                                          className={`w-full appearance-none ${config.bg} border-2 ${config.border} ${config.color} text-sm font-black px-4 py-3.5 rounded-2xl outline-none cursor-pointer transition-all hover:brightness-95 shadow-sm`}
+                                        >
+                                          <option value="未上傳">未上傳</option>
+                                          <option value="已上傳">已上傳</option>
+                                          <option value="待修正">待修正</option>
+                                          <option value="已修正">已修正</option>
+                                          <option value="通過">通過</option>
+                                          <option value="無">無</option>
+                                        </select>
+                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-30">
+                                          <ChevronDown size={14} />
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+
+                            <div className="space-y-5">
+                              <div className="flex items-center gap-3 text-slate-700 font-black text-sm uppercase tracking-widest">
+                                <MessageSquare size={22} className="text-indigo-600" /> 補件提醒與審核意見
+                              </div>
+                              <div className="relative">
+                                <textarea 
+                                  className="w-full bg-amber-50 border-2 border-amber-200 rounded-[2.5rem] p-8 text-base text-slate-700 font-bold placeholder-slate-400 focus:ring-4 focus:ring-amber-200 focus:border-amber-400 outline-none transition-all min-h-[140px] shadow-inner"
+                                  placeholder="在此輸入對成員資料的具體反饋..."
+                                  value={item.adminComment}
+                                  onChange={(e) => updateText(item.id, 'adminComment', e.target.value)}
+                                />
+                                <div className="absolute -top-4 right-10 bg-amber-300 text-amber-900 text-xs font-black px-4 py-1.5 rounded-full shadow-md uppercase tracking-widest">彙整反饋</div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 下層：準備指南 (三列式摺疊設計 - 全空白) */}
+                        <div className="p-8 lg:p-12 bg-slate-50 border-t border-slate-200">
+                          <div className="bg-indigo-50 border-2 border-indigo-100 rounded-[2rem] p-8 space-y-6 shadow-sm">
+                             <div className="flex items-center justify-between border-b border-indigo-100 pb-4 mb-4">
+                               <div className="flex items-center gap-3 text-indigo-800 font-black text-xl uppercase tracking-widest">
+                                 <Map size={26} className="text-indigo-500" /> 準備指南
+                               </div>
+                               <span className="text-[10px] font-black text-indigo-400 bg-white px-3 py-1 rounded-full border border-indigo-100 uppercase tracking-tighter">Guidelines</span>
+                             </div>
+                             
+                             <div className="space-y-4">
+                                <div className="group">
+                                  <button onClick={() => toggleGuideRow(item.id, 'core')} className="w-full flex items-center justify-between bg-white p-5 rounded-2xl border border-indigo-100 hover:border-indigo-400 hover:shadow-md transition-all">
+                                    <div className="flex items-center gap-3 text-indigo-700 font-black text-base uppercase tracking-wide">
+                                      <FileSearch size={20} className="text-indigo-400" /> 應提供的核心佐證資料
+                                    </div>
+                                    <div className="text-indigo-300">{expandedGuideRows[`${item.id}-core`] ? <ChevronDown size={20} /> : <ChevronRight size={20} />}</div>
+                                  </button>
+                                  {expandedGuideRows[`${item.id}-core`] && (
+                                    <div className="mt-2 p-4 bg-white/50 rounded-2xl border border-indigo-100">
+                                      <AutoResizeTextarea className="w-full text-base text-slate-600 leading-relaxed bg-white border border-indigo-50 p-6 rounded-xl outline-none focus:ring-4 focus:ring-indigo-100 transition-all shadow-inner font-medium h-auto" value={item.guide?.core} onChange={(e) => updateGuide(item.id, 'core', e.target.value)} placeholder="在此輸入核心佐證資料紀錄..." />
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div className="group">
+                                  <button onClick={() => toggleGuideRow(item.id, 'writing')} className="w-full flex items-center justify-between bg-white p-5 rounded-2xl border border-indigo-100 hover:border-indigo-400 hover:shadow-md transition-all">
+                                    <div className="flex items-center gap-3 text-indigo-700 font-black text-base uppercase tracking-wide">
+                                      <Edit3 size={20} className="text-indigo-400" /> 說明內容的撰寫要點
+                                    </div>
+                                    <div className="text-indigo-300">{expandedGuideRows[`${item.id}-writing`] ? <ChevronDown size={20} /> : <ChevronRight size={20} />}</div>
+                                  </button>
+                                  {expandedGuideRows[`${item.id}-writing`] && (
+                                    <div className="mt-2 p-4 bg-white/50 rounded-2xl border border-indigo-100">
+                                      <AutoResizeTextarea className="w-full text-base text-slate-600 leading-relaxed bg-white border border-indigo-50 p-6 rounded-xl outline-none focus:ring-4 focus:ring-indigo-100 transition-all shadow-inner font-medium h-auto" value={item.guide?.writing} onChange={(e) => updateGuide(item.id, 'writing', e.target.value)} placeholder="在此輸入說明內容撰寫要點紀錄..." />
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div className="group">
+                                  <button onClick={() => toggleGuideRow(item.id, 'presentation')} className="w-full flex items-center justify-between bg-white p-5 rounded-2xl border border-indigo-100 hover:border-indigo-400 hover:shadow-md transition-all">
+                                    <div className="flex items-center gap-3 text-indigo-700 font-black text-base uppercase tracking-wide">
+                                      <Lightbulb size={20} className="text-indigo-400" /> 資料呈現建議
+                                    </div>
+                                    <div className="text-indigo-300">{expandedGuideRows[`${item.id}-presentation`] ? <ChevronDown size={20} /> : <ChevronRight size={20} />}</div>
+                                  </button>
+                                  {expandedGuideRows[`${item.id}-presentation`] && (
+                                    <div className="mt-2 p-4 bg-white/50 rounded-2xl border border-indigo-100">
+                                      <AutoResizeTextarea className="w-full text-base text-slate-600 leading-relaxed bg-white border border-indigo-50 p-6 rounded-xl outline-none focus:ring-4 focus:ring-indigo-100 transition-all shadow-inner font-medium h-auto" value={item.guide?.presentation} onChange={(e) => updateGuide(item.id, 'presentation', e.target.value)} placeholder="在此輸入資料呈現建議紀錄..." />
+                                    </div>
+                                  )}
+                                </div>
+                             </div>
+                          </div>
+
+                          {/* 儲存按鈕列 */}
+                          <div className="mt-8 flex justify-end">
+                            <button 
+                              onClick={() => handleSave(item.id)}
+                              disabled={savingId === item.id}
+                              className={`flex items-center gap-2 px-10 py-4 rounded-2xl font-black text-base transition-all shadow-xl active:scale-95 ${
+                                savingId === item.id 
+                                  ? 'bg-emerald-500 text-white shadow-emerald-200' 
+                                  : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-indigo-200'
+                              }`}
+                            >
+                              {savingId === item.id ? <><CheckCircle size={22} /> 資料已存檔</> : <><Save size={22} /> 儲存本項指標資料</>}
+                            </button>
+                          </div>
+                        </div>
+
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+
+        <footer className="text-center py-20 text-slate-400 text-xs font-black tracking-[0.4em] border-t border-slate-200 mt-20 uppercase">
+          專業且嚴謹的特教行政管理 · [ NO PII ] 數據隱私保障系統
+        </footer>
+      </div>
+    </div>
+  );
+};
+
+export default App;
