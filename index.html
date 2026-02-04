@@ -1,712 +1,1543 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { 
-  Users, 
-  ChevronDown, 
-  ChevronRight, 
-  FileText, 
-  CheckCircle2, 
-  MessageSquare, 
-  Layout, 
-  CheckSquare,
-  ClipboardCheck,
-  Info,
-  ListChecks,
-  AlertCircle,
-  CheckCircle,
-  FolderOpen,
-  Target,
-  Heart,
-  Edit3,
-  Save,
-  Map,
-  Lightbulb,
-  FileSearch
-} from 'lucide-react';
+<!doctype html>
+<html lang="zh-Hant">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>特教評鑑資料彙整追蹤系統</title>
+  <script src="/_sdk/element_sdk.js"></script>
+  <script src="/_sdk/data_sdk.js"></script>
+  <style>
+        body {
+            box-sizing: border-box;
+        }
 
-const TEAM_MEMBERS = ["綉惠", "孟筑", "芳玉", "尹俞"];
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
 
-// 狀態配置與配色系統
-const STATUS_CONFIG = {
-  "待修正": { color: "text-red-600", bg: "bg-red-50", border: "border-red-200", icon: <AlertCircle size={16} /> },
-  "已上傳": { color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-200", icon: <FileText size={16} /> },
-  "已修正": { color: "text-orange-600", bg: "bg-orange-50", border: "border-orange-200", icon: <CheckCircle2 size={16} /> },
-  "通過": { color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-200", icon: <CheckCircle size={16} /> },
-  "無": { color: "text-[#5D4037]", bg: "bg-[#EFEBE9]", border: "border-[#D7CCC8]", icon: null }, 
-  "未上傳": { color: "text-slate-400", bg: "bg-slate-50", border: "border-slate-200", icon: null }
-};
+        .app-wrapper {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            font-family: 'Segoe UI', 'Microsoft JhengHei', Tahoma, sans-serif;
+            overflow: hidden;
+        }
 
-// 子元件：自動調整高度的文字框 (消除輪軸用)
-const AutoResizeTextarea = ({ value, onChange, placeholder, className }) => {
-  const textareaRef = useRef(null);
+        .header {
+            background: linear-gradient(90deg, #0f1e3d 0%, #1a2d4d 100%);
+            padding: 24px;
+            color: white;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+            border-bottom: 4px solid #2a9fd8;
+            flex-shrink: 0;
+        }
 
-  const adjustHeight = () => {
-    const textarea = textareaRef.current;
-    if (textarea) {
-      textarea.style.height = 'auto';
-      textarea.style.height = `${textarea.scrollHeight}px`;
-    }
-  };
+        .header h1 {
+            margin: 0;
+            font-size: 32px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
 
-  useEffect(() => {
-    adjustHeight();
-  }, [value]);
+        .header p {
+            margin: 8px 0 0 0;
+            font-size: 14px;
+            opacity: 0.9;
+            letter-spacing: 0.3px;
+        }
 
-  return (
-    <textarea
-      ref={textareaRef}
-      className={`${className} overflow-hidden resize-none`}
-      value={value}
-      onChange={onChange}
-      placeholder={placeholder}
-      rows={1}
-    />
-  );
-};
+        .content-wrapper {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 24px;
+            scrollbar-width: none;
+        }
 
-const INITIAL_DATA = [
-  // 一、行政運作與融合教育
-  {
-    id: "1-4-1",
-    category: "一、行政運作與融合教育",
-    indicator: "指標 1-4：根據學生學習需求提供合理調整措施",
-    name: "合理調整運作機制，包括申請與協商程序。",
-    checkItems: ["合理調整之申請與協商程序，如：實施計畫、流程圖"],
-    prepData: "IEP",
-    prepDataExtra: "", 
-    overallStatus: "未完成",
-    memberStatus: { "綉惠": "未上傳", "孟筑": "未上傳", "芳玉": "未上傳", "尹俞": "未上傳" },
-    adminComment: "", 
-    note: "",
-    guide: { core: "", writing: "", presentation: "" }
-  },
-  {
-    id: "1-4-2",
-    category: "一、行政運作與融合教育",
-    indicator: "指標 1-4：根據學生學習需求提供合理調整措施",
-    name: "提供學生學習所需之合理調整措施並定期檢討。",
-    checkItems: ["合理調整措施及檢討會紀錄(明確寫出合理調整措施，無則免附)"],
-    prepData: "IEP & 會議紀錄",
-    prepDataExtra: "",
-    overallStatus: "未完成",
-    memberStatus: { "綉惠": "未上傳", "孟筑": "未上傳", "芳玉": "未上傳", "尹俞": "未上傳" },
-    adminComment: "",
-    note: "",
-    guide: { core: "", writing: "", presentation: "" }
-  },
-  {
-    id: "1-5-1",
-    category: "一、行政運作與融合教育",
-    indicator: "指標 1-5：校長協調相關資源，提供教師支持",
-    name: "校長協調校內各單位提供教師及特殊教育學生所需人力資源及協助。",
-    checkItems: [
-      "校長協調人力資源會議紀錄，具跨單位協調之具體事例。", 
-      "學生所需人力資源協助與支持，IEP會議、個案會議、跨專業團隊討論，展現資源協調成效等。"
-    ],
-    prepData: "IEP 會議紀錄、個案會議紀錄、相關紀錄",
-    prepDataExtra: "",
-    overallStatus: "未完成",
-    memberStatus: { "綉惠": "未上傳", "孟筑": "未上傳", "芳玉": "未上傳", "尹俞": "未上傳" },
-    adminComment: "",
-    note: "",
-    guide: { core: "", writing: "", presentation: "" }
-  },
-  {
-    id: "1-6-1",
-    category: "一、行政運作與融合教育",
-    indicator: "指標 1-6：建立普通及特殊教育交流合作機制",
-    name: "學校應建立學校內普特教師交流合作相關機制並落實執行。",
-    checkItems: ["學校建立交流合作機制之相關資料及執行紀錄（如：共同規劃課程、個案研討、辦理研習或座談等，至少擇一檢附）。"],
-    prepData: "校內社群簽到表、line圖、個案會議、特師參與普班活動",
-    prepDataExtra: "",
-    overallStatus: "未完成",
-    memberStatus: { "綉惠": "未上傳", "孟筑": "未上傳", "芳玉": "未上傳", "尹俞": "未上傳" },
-    adminComment: "",
-    note: "",
-    guide: { core: "", writing: "", presentation: "" }
-  },
-  // 二、教育計畫與團隊合作
-  {
-    id: "2-1-2",
-    category: "二、教育計畫與團隊合作",
-    indicator: "指標 2-1：建立校評估轉介流程，依規定轉介鑑定",
-    name: "在轉介身心障礙學生鑑定前，能提供轉介前介入。",
-    checkItems: ["轉介前介入及實施成效，如：一般教學輔導介入、三級輔導相關資料等。"],
-    prepData: "個案會議紀錄",
-    prepDataExtra: "",
-    overallStatus: "未完成",
-    memberStatus: { "綉惠": "未上傳", "孟筑": "未上傳", "芳玉": "未上傳", "尹俞": "未上傳" },
-    adminComment: "",
-    note: "",
-    guide: { core: "", writing: "", presentation: "" }
-  },
-  {
-    id: "2-2-1",
-    category: "二、教育計畫與團隊合作",
-    indicator: "指標 2-2：以專業團隊合作方式提供服務",
-    name: "學校根據學生個別特殊需求組成專業團隊，指派校內教師主責...並執行及追蹤 IEP。",
-    checkItems: ["專業團隊人員名單（含主責人員名單，每班至少 2 份、每位教師至少 1 份為原則）。"],
-    prepData: "IEP",
-    prepDataExtra: "",
-    overallStatus: "未完成",
-    memberStatus: { "綉惠": "未上傳", "孟筑": "未上傳", "芳玉": "未上傳", "尹俞": "未上傳" },
-    adminComment: "",
-    note: "",
-    guide: { core: "", writing: "", presentation: "" }
-  },
-  {
-    id: "2-2-2",
-    category: "二、教育計畫與團隊合作",
-    indicator: "指標 2-2：以專業團隊合作方式提供服務",
-    name: "專業團隊成員提供服務前告知，服務後應通知其結果。",
-    checkItems: [
-      "取得同意並邀請參加之佐證資料（如：通知單或 IEP 會議紀錄）。", 
-      "主責人員召開團隊討論之紀錄（如：簽到表、 IEP 會議/執行紀錄）。"
-    ],
-    prepData: "IEP & 會議紀錄、相關會議",
-    prepDataExtra: "",
-    overallStatus: "未完成",
-    memberStatus: { "綉惠": "未上傳", "孟筑": "未上傳", "芳玉": "未上傳", "尹俞": "未上傳" },
-    adminComment: "",
-    note: "",
-    guide: { core: "", writing: "", presentation: "" }
-  },
-  {
-    id: "2-3",
-    category: "二、教育計畫與團隊合作",
-    indicator: "指標 2-3：個別化教育計畫參與人員符合規定",
-    name: "學校依學生特殊需求透過團隊合作討論訂定IEP。",
-    checkItems: ["訂定 IEP 之簽到表、會議紀錄等", "邀請家長（法定代理人/實際照顧者）及學生本人參與。"],
-    prepData: "IEP & 會議紀錄",
-    prepDataExtra: "",
-    overallStatus: "未完成",
-    memberStatus: { "綉惠": "未上傳", "孟筑": "未上傳", "芳玉": "未上傳", "尹俞": "未上傳" },
-    adminComment: "",
-    note: "",
-    guide: { core: "", writing: "", presentation: "" }
-  },
-  {
-    id: "2-4-1",
-    category: "二、教育計畫與團隊合作",
-    indicator: "指標 2-4：個別化教育計畫訂定及內容符合規定",
-    name: "IEP 應於開學前訂定；轉學生於入學後一個月內訂定。",
-    checkItems: ["訂定及檢討 IEP 之簽到表、會議紀錄等（每班至少 2 份、每位教師至少 1 份）。"],
-    prepData: "IEP & 會議紀錄",
-    prepDataExtra: "",
-    overallStatus: "未完成",
-    memberStatus: { "綉惠": "未上傳", "孟筑": "未上傳", "芳玉": "未上傳", "尹俞": "未上傳" },
-    adminComment: "",
-    note: "",
-    guide: { core: "", writing: "", presentation: "" }
-  },
-  {
-    id: "2-4-2",
-    category: "二、教育計畫與團隊合作",
-    indicator: "指標 2-4：個別化教育計畫訂定及內容符合規定",
-    name: "每位特殊教育學生均有IEP，且內容項目符合規定。",
-    checkItems: ["內容項目符合特殊教育法施行細則第10條規定"],
-    prepData: "IEP",
-    prepDataExtra: "",
-    overallStatus: "未完成",
-    memberStatus: { "綉惠": "未上傳", "孟筑": "未上傳", "芳玉": "未上傳", "尹俞": "未上傳" },
-    adminComment: "",
-    note: "",
-    guide: { core: "", writing: "", presentation: "" }
-  },
-  // 三、課程教學與專業發展
-  {
-    id: "3-1-1",
-    category: "三、課程教學與專業發展",
-    indicator: "指標 3-1：特殊教育課程規劃符合法規及需求",
-    name: "特教課程應依學生需求彈性調整內容、歷程、環境、評量等。",
-    checkItems: [
-      "送特推會審議的課程規劃（含特需領域）。", 
-      "因應學生需求進行之課程調整實際作為（如：分組表、班級課表、課程計畫等）。"
-    ], // 已更新內容
-    prepData: "課程計畫、學生特殊教育需求與課程調整規劃彙整表、課表",
-    prepDataExtra: "",
-    overallStatus: "未完成",
-    memberStatus: { "綉惠": "未上傳", "孟筑": "未上傳", "芳玉": "未上傳", "尹俞": "未上傳" },
-    adminComment: "",
-    note: "",
-    guide: { core: "", writing: "", presentation: "" }
-  },
-  {
-    id: "3-1-2",
-    category: "三、課程教學與專業發展",
-    indicator: "指標 3-1：特殊教育課程規劃符合法規及需求",
-    name: "學校分散式資源班開設之領域及分組排課符合學生需求。",
-    checkItems: ["排課規範、計畫、會議紀錄 or 行政簽辦文件"],
-    prepData: "課表",
-    prepDataExtra: "",
-    overallStatus: "未完成",
-    memberStatus: { "綉惠": "未上傳", "孟筑": "未上傳", "芳玉": "未上傳", "尹俞": "未上傳" },
-    adminComment: "",
-    note: "",
-    guide: { core: "", writing: "", presentation: "" }
-  },
-  {
-    id: "3-3-1",
-    category: "三、課程教學與專業發展",
-    indicator: "指標 3-3：落實特殊教育學生課程調整",
-    name: "普通班教師參與 IEP討論，並依結果執行課程調整。",
-    checkItems: ["確認調整方式之會議紀錄", "普通班教師執行課程調整之檢核表"],
-    prepData: "IEP & 會議紀錄、成績單、普師填寫教助成效電子表",
-    prepDataExtra: "",
-    overallStatus: "未完成",
-    memberStatus: { "綉惠": "未上傳", "孟筑": "未上傳", "芳玉": "未上傳", "尹俞": "未上傳" },
-    adminComment: "",
-    note: "",
-    guide: { core: "", writing: "", presentation: "" }
-  },
-  // 四、支持服務與輔導轉銜
-  {
-    id: "4-1-1",
-    category: "四、支持服務與輔導轉銜",
-    indicator: "指標 4-1：根據學生能力及需求提供支持服務",
-    name: "支持服務及評量調整，經IEP 會議及特推會審議。",
-    checkItems: ["IEP 第二項：學生所需特殊教育、相關服務及支持策略"],
-    prepData: "IEP 會議紀錄、特推會議紀錄",
-    prepDataExtra: "",
-    overallStatus: "未完成",
-    memberStatus: { "綉惠": "未上傳", "孟筑": "未上傳", "芳玉": "未上傳", "尹俞": "未上傳" },
-    adminComment: "",
-    note: "",
-    guide: { core: "", writing: "", presentation: "" }
-  },
-  {
-    id: "4-1-2",
-    category: "四、支持服務與輔導轉銜",
-    indicator: "指標 4-1：根據學生能力及需求提供支持服務",
-    name: "提供身心障礙學生所需支持服務及評量調整措施。",
-    checkItems: ["提供支持服務及評量調整實際作為(如彙整表、實施計畫)"],
-    prepData: "IEP",
-    prepDataExtra: "",
-    overallStatus: "未完成",
-    memberStatus: { "綉惠": "未上傳", "孟筑": "未上傳", "芳玉": "未上傳", "尹俞": "未上傳" },
-    adminComment: "",
-    note: "",
-    guide: { core: "", writing: "", presentation: "" }
-  },
-  {
-    id: "4-3-2",
-    category: "四、支持服務與輔導轉銜",
-    indicator: "指標 4-3：建立輔導及特教合作機制",
-    name: "學校整合校內外專業人員，提供所需輔導服務及資源連結。",
-    checkItems: ["輔導服務之學生名單及相關資料(如輔導紀錄)"],
-    prepData: "學校含有輔導特生的相關紀錄",
-    prepDataExtra: "",
-    overallStatus: "未完成",
-    memberStatus: { "綉惠": "未上傳", "孟筑": "未上傳", "芳玉": "未上傳", "尹俞": "未上傳" },
-    adminComment: "",
-    note: "",
-    guide: { core: "", writing: "", presentation: "" }
-  },
-  {
-    id: "4-3-3",
-    category: "四、支持服務與輔導轉銜",
-    indicator: "指標 4-3：建立輔導及特教合作機制",
-    name: "個案會議納入行政人員、普通教師、特教教師...邀請家長參與。",
-    checkItems: ["個案會議佐證資料(簽到表及邀請家長通知)"],
-    prepData: "個案會議紀錄",
-    prepDataExtra: "",
-    overallStatus: "未完成",
-    memberStatus: { "綉惠": "未上傳", "孟筑": "未上傳", "芳玉": "未上傳", "尹俞": "未上傳" },
-    adminComment: "",
-    note: "",
-    guide: { core: "", writing: "", presentation: "" }
-  },
-  {
-    id: "4-4-1",
-    category: "四、支持服務與輔導轉銜",
-    indicator: "指標 4-4：根據學習需求辦理轉銜輔導服務",
-    name: "辦理跨教育階段或離校轉銜輔導服務。",
-    checkItems: ["轉銜輔導服務辦理情形(如：IEP 第五項)"],
-    prepData: "跨階段/轉學轉銜輔導服務",
-    prepDataExtra: "",
-    overallStatus: "未完成",
-    memberStatus: { "綉惠": "未上傳", "孟筑": "未上傳", "芳玉": "未上傳", "尹俞": "未上傳" },
-    adminComment: "",
-    note: "",
-    guide: { core: "", writing: "", presentation: "" }
-  },
-  {
-    id: "4-5-1",
-    category: "四、支持服務與輔導轉銜",
-    indicator: "指標 4-5：依法召開轉銜會議、通報與追蹤",
-    name: "依期程邀請人員召開轉銜會議、填寫特教通報網轉銜資料。",
-    checkItems: ["學生轉銜會議紀錄、通報轉銜接收時間紀錄"],
-    prepData: "轉銜會議",
-    prepDataExtra: "",
-    overallStatus: "未完成",
-    memberStatus: { "綉惠": "未上傳", "孟筑": "未上傳", "芳玉": "未上傳", "尹俞": "未上傳" },
-    adminComment: "",
-    note: "",
-    guide: { core: "", writing: "", presentation: "" }
-  }
-];
+        .content-wrapper::-webkit-scrollbar {
+            display: none;
+        }
 
-const App = () => {
-  const [data, setData] = useState(INITIAL_DATA);
-  const [expandedSections, setExpandedSections] = useState(["一、行政運作與融合教育", "二、教育計畫與團隊合作", "三、課程教學與專業發展", "四、支持服務與輔導轉銜"]);
-  const [expandedItems, setExpandedItems] = useState(["1-4-1"]);
-  const [expandedGuideRows, setExpandedGuideRows] = useState({}); 
-  const [savingId, setSavingId] = useState(null);
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
 
-  const progress = useMemo(() => {
-    const totalItems = data.length;
-    const completedItems = data.filter(item => item.overallStatus === "已完成").length;
-    return totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
-  }, [data]);
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            border-left: 5px solid #2a9fd8;
+            text-align: center;
+        }
 
-  const toggleSection = (category) => {
-    setExpandedSections(prev => 
-      prev.includes(category) ? prev.filter(s => s !== category) : [...prev, category]
-    );
-  };
+        .stat-value {
+            font-size: 36px;
+            font-weight: 700;
+            color: #2a9fd8;
+            margin: 10px 0;
+        }
 
-  const toggleItem = (itemId) => {
-    setExpandedItems(prev =>
-      prev.includes(itemId) ? prev.filter(id => id !== itemId) : [...prev, itemId]
-    );
-  };
+        .stat-label {
+            font-size: 13px;
+            color: #666;
+            font-weight: 500;
+        }
 
-  const toggleGuideRow = (itemId, rowKey) => {
-    const compositeKey = `${itemId}-${rowKey}`;
-    setExpandedGuideRows(prev => ({
-      ...prev,
-      [compositeKey]: !prev[compositeKey]
-    }));
-  };
+        .filters-container {
+            background: white;
+            padding: 16px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
 
-  const updateMemberStatus = (itemId, member, newStatus) => {
-    setData(prev => prev.map(item => {
-      if (item.id === itemId) {
-        return { ...item, memberStatus: { ...item.memberStatus, [member]: newStatus } };
-      }
-      return item;
-    }));
-  };
+        .filter-group {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
 
-  const updateOverallStatus = (itemId, newStatus) => {
-    setData(prev => prev.map(item => {
-      if (item.id === itemId) {
-        return { ...item, overallStatus: newStatus };
-      }
-      return item;
-    }));
-  };
+        .filter-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #333;
+        }
 
-  const updateText = (itemId, field, value) => {
-    setData(prev => prev.map(item => {
-      if (item.id === itemId) return { ...item, [field]: value };
-      return item;
-    }));
-  };
+        .filter-select {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 12px;
+            background: white;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
 
-  const updateGuide = (itemId, field, value) => {
-    setData(prev => prev.map(item => {
-      if (item.id === itemId) {
-        return { ...item, guide: { ...item.guide, [field]: value } };
-      }
-      return item;
-    }));
-  };
+        .filter-select:hover {
+            border-color: #2a9fd8;
+        }
 
-  const handleSave = (itemId) => {
-    setSavingId(itemId);
-    setTimeout(() => setSavingId(null), 1500);
-  };
+        .table-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+            overflow: hidden;
+        }
 
-  const categories = [...new Set(data.map(item => item.category))];
+        .table-wrapper {
+            width: 100%;
+            overflow-x: auto;
+        }
 
-  return (
-    <div className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans">
-      <div className="max-w-7xl mx-auto space-y-6">
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        thead {
+            background: linear-gradient(90deg, #1a3a5a 0%, #0f2a42 100%);
+            color: white;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        thead tr {
+            display: grid;
+            grid-template-columns: 3% 2% 12% 12% 16% 13% 7% 7% 7% 7% 6%;
+            gap: 0;
+        }
+
+        thead tr th {
+            padding: 12px 8px;
+            text-align: left;
+            letter-spacing: 0.3px;
+            font-size: 12px;
+            border-right: 1px solid #0f1e3d;
+            word-break: break-word;
+            overflow-wrap: break-word;
+            line-height: 1.3;
+        }
+
+        thead tr th:last-child {
+            border-right: none;
+        }
+
+        thead tr:first-child th {
+            border-bottom: 2px solid #2a9fd8;
+        }
+
+        thead tr:last-child {
+            background: linear-gradient(90deg, #0f1e3d 0%, #0a1829 100%);
+        }
+
+        thead tr:last-child th {
+            padding: 5px 8px;
+            font-size: 10px;
+            font-weight: 500;
+            color: #90caf9;
+            border-top: 1px solid #1a3a5a;
+        }
+
+        tbody tr {
+            display: grid;
+            grid-template-columns: 3% 2% 12% 12% 16% 13% 7% 7% 7% 7% 6%;
+            gap: 0;
+            border-bottom: 1px solid #e8e8e8;
+            transition: background-color 0.2s;
+            align-items: start;
+        }
+
+        tbody tr:hover {
+            background-color: #f5f9ff;
+        }
+
+        tbody tr.row-completed {
+            background-color: #f0fdf4 !important;
+        }
+
+        td {
+            padding: 10px 8px;
+            vertical-align: top;
+            word-break: break-word;
+            overflow-wrap: break-word;
+            border-right: 1px solid #e8e8e8;
+            min-height: 65px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            font-size: 12px;
+        }
+
+        td:last-child {
+            border-right: none;
+        }
+
+        .col-index {
+            font-weight: 600;
+            text-align: center;
+            color: #1a3a5a;
+            font-size: 13px;
+        }
+
+        .col-index-note {
+            font-size: 9px;
+            color: #999;
+            margin-top: 2px;
+            text-align: center;
+            font-weight: 400;
+        }
+
+        .edit-btn-small {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+            padding: 3px 6px;
+            background: #e3f2fd;
+            border: 1px solid #90caf9;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 10px;
+            color: #1565c0;
+            font-weight: 600;
+            transition: all 0.2s;
+            width: fit-content;
+            margin-top: 3px;
+            white-space: nowrap;
+        }
+
+        .edit-btn-small:hover {
+            background: #bbdefb;
+            border-color: #64b5f6;
+        }
+
+        .category-badge {
+            display: inline-block;
+            padding: 3px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+            font-weight: 600;
+            margin-bottom: 4px;
+            width: fit-content;
+        }
+
+        .cat-1-badge { background: #e3f2fd; color: #1565c0; }
+        .cat-2-badge { background: #f3e5f5; color: #6a1b9a; }
+        .cat-3-badge { background: #fff3e0; color: #e65100; }
+        .cat-4-badge { background: #e0f2f1; color: #00695c; }
+
+        .indicator-text {
+            font-weight: 600;
+            color: #1a3a5a;
+            line-height: 1.4;
+            font-size: 13px;
+        }
+
+        .reference-text {
+            font-size: 14px;
+            color: #1a3a5a;
+            line-height: 1.5;
+            font-weight: 700;
+        }
+
+        .checklist-text {
+            font-size: 13px;
+            color: #555;
+            line-height: 1.4;
+            font-weight: 500;
+        }
+
+        .preparation-text {
+            font-size: 13px;
+            color: #555;
+            line-height: 1.4;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+
+        .supplementary-section {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .supplementary-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #666;
+            margin-bottom: 6px;
+            display: block;
+        }
+
+        .supplementary-textarea {
+            width: 100%;
+            min-height: 60px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 11px;
+            font-family: 'Segoe UI', 'Microsoft JhengHei', Tahoma, sans-serif;
+            resize: vertical;
+            transition: border-color 0.2s;
+            line-height: 1.4;
+        }
+
+        .supplementary-textarea:focus {
+            outline: none;
+            border-color: #2a9fd8;
+            box-shadow: 0 0 4px rgba(42, 159, 216, 0.2);
+        }
+
+        .status-select {
+            padding: 8px 10px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 100%;
+            margin-bottom: 6px;
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 8px center;
+            background-size: 16px;
+            padding-right: 32px;
+        }
+
+        .status-select:hover {
+            border-color: #2a9fd8;
+        }
+
+        .status-select:focus {
+            outline: none;
+            border-color: #2a9fd8;
+            box-shadow: 0 0 4px rgba(42, 159, 216, 0.3);
+        }
+
+        .status-select-未上傳 {
+            background-color: #d3d3d3;
+            color: white;
+        }
+
+        .status-select-已上傳 {
+            background-color: #2a9fd8;
+            color: white;
+        }
+
+        .status-select-待修正 {
+            background-color: #ffcccb;
+            color: #333;
+        }
+
+        .status-select-已修正 {
+            background-color: #ffeb99;
+            color: #333;
+        }
+
+        .status-select-通過 {
+            background-color: #90ee90;
+            color: #333;
+        }
+
+        .status-select-無 {
+            background-color: #8B6F47 !important;
+            color: #333 !important;
+            border-color: #8B6F47 !important;
+        }
+
+        .status-select-無:hover {
+            background-color: #6F5A3F !important;
+            color: #333 !important;
+            border-color: #6F5A3F !important;
+        }
+
+        .status-select-無:focus {
+            background-color: #8B6F47 !important;
+            color: #333 !important;
+            border-color: #8B6F47 !important;
+        }
+
+        .status-select-無 option {
+            color: #333;
+            background-color: white;
+        }
+
+        .progress-select {
+            width: 100%;
+            padding: 8px 10px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 8px center;
+            background-size: 16px;
+            padding-right: 32px;
+        }
+
+        .progress-select:hover {
+            border-color: #2a9fd8;
+        }
+
+        .progress-select:focus {
+            outline: none;
+            border-color: #2a9fd8;
+            box-shadow: 0 0 4px rgba(42, 159, 216, 0.3);
+        }
+
+        .progress-select-未完成 {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        .progress-select-進行中 {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+
+        .progress-select-已完成 {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .progress-select-無 {
+            background-color: #8B6F47 !important;
+            color: white !important;
+            border-color: #8B6F47 !important;
+        }
+
+        .progress-select-無:hover {
+            background-color: #6F5A3F !important;
+            color: white !important;
+            border-color: #6F5A3F !important;
+        }
+
+        .progress-select-無:focus {
+            background-color: #8B6F47 !important;
+            color: white !important;
+            border-color: #8B6F47 !important;
+        }
+
+        .progress-select-無 option {
+            color: #333;
+            background-color: white;
+        }
         
-        {/* Header Section */}
-        <header className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-center gap-6">
-          <div className="flex items-center gap-6">
-            <div className="w-16 h-16 bg-indigo-600 rounded-3xl flex items-center justify-center shadow-lg shadow-indigo-100 ring-4 ring-indigo-50">
-              <ClipboardCheck className="text-white" size={32} />
-            </div>
-            <div>
-              <h1 className="text-3xl font-black text-slate-800 tracking-tight">
-                特教評鑑指標協作系統 <span className="mx-2 text-slate-300 font-light">|</span> <span className="text-indigo-600">進度與資料彙整</span>
-              </h1>
-              <div className="flex items-center gap-4 mt-2 text-slate-500 text-base font-bold">
-                <span className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-4 py-1.5 rounded-full shadow-sm"><Users size={20} className="text-indigo-400" /> 團隊成員：{TEAM_MEMBERS.join('、')}</span>
-              </div>
-            </div>
-          </div>
-          
-          <div className="flex flex-col items-end gap-2 min-w-[280px]">
-            <div className="flex justify-between w-full text-xs font-black text-slate-400 uppercase tracking-widest">
-              <span>全體總達成度 (效標已完成數)</span>
-              <span className="text-indigo-600 text-xl font-black">{progress}%</span>
-            </div>
-            <div className="w-full h-4 bg-slate-100 rounded-full overflow-hidden border border-slate-200 p-0.5 shadow-inner">
-              <div 
-                className="h-full bg-indigo-500 rounded-full transition-all duration-1000 ease-out shadow-sm" 
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-          </div>
-        </header>
+        .progress-select-無::placeholder {
+            color: white;
+        }
 
-        {/* Content Area */}
-        {categories.map(category => (
-          <div key={category} className="space-y-4">
-            <button 
-              onClick={() => toggleSection(category)}
-              className="flex items-center gap-4 w-full text-left py-3 px-3 hover:bg-white rounded-2xl transition-all group"
-            >
-              <div className={`p-2 rounded-xl transition-colors shadow-sm ${expandedSections.includes(category) ? 'bg-indigo-600 text-white' : 'bg-white text-slate-400 border border-slate-200'}`}>
-                {expandedSections.includes(category) ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
-              </div>
-              <h2 className="text-2xl font-black text-slate-700 tracking-tight group-hover:text-indigo-600">{category}</h2>
-              <div className="flex-1 border-b-2 border-slate-200 border-dashed ml-4 opacity-40"></div>
-            </button>
+        .progress-bar-container {
+            width: 100%;
+            height: 20px;
+            background-color: #e8e8e8;
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+            border: 1px solid #ddd;
+        }
 
-            {expandedSections.includes(category) && (
-              <div className="space-y-12 ml-6 border-l-4 border-indigo-200 pl-8 pb-4 mt-4">
-                {data.filter(item => item.category === category).map(item => (
-                  <div key={item.id} className="bg-white rounded-[2.5rem] shadow-sm border border-slate-200 overflow-hidden hover:shadow-2xl transition-all duration-300">
-                    
-                    <button 
-                      onClick={() => toggleItem(item.id)}
-                      className="w-full bg-slate-800 px-10 py-5 flex items-center justify-between hover:bg-slate-700 transition-colors"
-                    >
-                      <div className="flex items-center gap-5">
-                        <span className="flex items-center gap-2 bg-indigo-500 text-white text-sm font-black px-4 py-2 rounded-lg shadow-sm uppercase tracking-widest">
-                          ❤️ 指標 #{item.id}
-                        </span>
-                        <span className="text-xs font-bold text-slate-300 uppercase tracking-[0.2em] text-left">{item.indicator}</span>
-                      </div>
-                      <div className="text-slate-400">
-                        {expandedItems.includes(item.id) ? <ChevronDown size={24} /> : <ChevronRight size={24} />}
-                      </div>
-                    </button>
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50 0%, #66BB6A 100%);
+            width: 0%;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: 600;
+            color: white;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+        }
 
-                    {expandedItems.includes(item.id) && (
-                      <div className="flex flex-col animate-in fade-in slide-in-from-top-4 duration-500">
-                        
-                        <div className="flex flex-col lg:flex-row">
-                          <div className="flex-1 p-8 lg:p-12 space-y-10 bg-white border-b lg:border-b-0">
-                            <div className="space-y-8">
-                              <h3 className="text-3xl font-black text-slate-800 leading-tight tracking-tight">{item.name}</h3>
-                              <div className="bg-emerald-50 border-2 border-emerald-100 rounded-[2rem] p-8 space-y-6 shadow-sm">
-                                 <div className="flex items-center gap-3 text-emerald-800 font-black text-sm uppercase tracking-widest">
-                                   <ListChecks size={22} className="text-emerald-500" /> 檔案內容檢核清單 (核心準則)
-                                 </div>
-                                 <div className="grid gap-4">
-                                   {item.checkItems.map((check, idx) => (
-                                     <div key={idx} className="flex items-start gap-4 bg-white/70 p-5 rounded-2xl border border-emerald-100/50 text-base text-emerald-900 font-bold leading-relaxed shadow-sm">
-                                       <CheckSquare size={24} className="mt-0.5 text-emerald-500 flex-shrink-0" /> 
-                                       {check}
-                                     </div>
-                                   ))}
-                                 </div>
-                              </div>
-                            </div>
+        .progress-bar-fill.progress-0 {
+            background: linear-gradient(90deg, #e8e8e8 0%, #d3d3d3 100%);
+            width: 0%;
+        }
 
-                            <div className="space-y-6">
-                              <div className="bg-white border-l-[8px] border-amber-400 rounded-xl p-5 shadow-sm border border-slate-100 space-y-4">
-                                <div className="flex items-center gap-4">
-                                  <div className="p-2.5 bg-amber-50 rounded-lg text-amber-600 shadow-inner">
-                                    <FolderOpen size={20} />
-                                  </div>
-                                  <div className="flex-1">
-                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">準備資料：</div>
-                                    <div className="text-lg font-black text-slate-800 tracking-tight">{item.prepData}</div>
-                                  </div>
-                                </div>
-                                <div className="flex items-start gap-3 bg-slate-50 px-4 py-3 rounded-xl border border-slate-200 shadow-inner">
-                                  <Edit3 size={16} className="text-amber-500 shrink-0 mt-1" />
-                                  <textarea 
-                                    className="bg-transparent w-full text-sm font-bold text-slate-600 outline-none placeholder-slate-300 resize-none min-h-[60px]"
-                                    placeholder="在此輸入具體文件名稱補充或詳細說明..."
-                                    value={item.prepDataExtra}
-                                    onChange={(e) => updateText(item.id, 'prepDataExtra', e.target.value)}
-                                    rows="2"
-                                  />
-                                </div>
-                              </div>
+        .progress-bar-fill.progress-50 {
+            background: linear-gradient(90deg, #FFC107 0%, #FFD54F 100%);
+            width: 50%;
+        }
 
-                              <div className="relative group">
-                                <textarea 
-                                  className="w-full bg-amber-50/40 border-2 border-amber-100 rounded-[2rem] p-8 pl-16 text-base text-slate-700 font-bold placeholder-amber-400 focus:ring-4 focus:ring-amber-100 focus:border-amber-300 outline-none transition-all min-h-[140px] shadow-inner"
-                                  placeholder="在此輸入行政執行細節紀錄..."
-                                  value={item.note}
-                                  onChange={(e) => updateText(item.id, 'note', e.target.value)}
-                                />
-                                <div className="absolute top-8 left-6 text-amber-500 pointer-events-none opacity-60">
-                                  <FileText size={24} />
-                                </div>
-                                <div className="absolute top-3 right-8 text-xs font-black text-amber-600 opacity-40 uppercase tracking-widest">行政細節紀錄</div>
-                              </div>
-                            </div>
-                          </div>
+        .progress-bar-fill.progress-100 {
+            background: linear-gradient(90deg, #4CAF50 0%, #66BB6A 100%);
+            width: 100%;
+        }
 
-                          <div className="lg:w-[520px] bg-slate-50 p-8 lg:p-12 border-l border-slate-200 space-y-10 flex flex-col relative">
-                            <div className="space-y-8 flex-1">
-                              <div className="flex justify-between items-center">
-                                <div className="flex items-center gap-3 text-slate-700 font-black text-sm uppercase tracking-widest">
-                                  <Users size={24} className="text-indigo-600" /> 各成員準備狀態
-                                </div>
-                                <div className={`flex items-center gap-2 border-2 rounded-full px-5 py-2 shadow-sm transition-all ${
-                                  item.overallStatus === '已完成' ? 'bg-emerald-50 border-emerald-400 text-emerald-700' : 
-                                  item.overallStatus === '進行中' ? 'bg-amber-50 border-amber-400 text-amber-700' : 'bg-white border-slate-200 text-slate-400'
-                                }`}>
-                                  <Target size={16} className={item.overallStatus === '已完成' ? 'animate-pulse' : ''} />
-                                  <span className="text-[11px] font-black uppercase tracking-tighter">效標總進度</span>
-                                  <select 
-                                    value={item.overallStatus}
-                                    onChange={(e) => updateOverallStatus(item.id, e.target.value)}
-                                    className="bg-transparent text-xs font-black outline-none cursor-pointer"
-                                  >
-                                    <option value="未完成">未完成</option>
-                                    <option value="進行中">進行中</option>
-                                    <option value="已完成">已完成</option>
-                                  </select>
-                                </div>
-                              </div>
+        .progress-percent {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 10px;
+            font-weight: 700;
+            color: #333;
+            text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
+            z-index: 10;
+        }
 
-                              <div className="grid grid-cols-2 gap-5">
-                                {TEAM_MEMBERS.map(member => {
-                                  const status = item.memberStatus[member];
-                                  const config = STATUS_CONFIG[status] || STATUS_CONFIG["未上傳"];
-                                  return (
-                                    <div key={member} className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 space-y-4 hover:border-indigo-400 transition-all transform hover:-translate-y-1">
-                                      <div className="flex items-center justify-between">
-                                        <span className="text-sm font-black text-slate-400 tracking-tight">{member} 老師</span>
-                                        <div className={`${config.color}`}>{config.icon}</div>
-                                      </div>
-                                      <div className="relative">
-                                        <select 
-                                          value={status}
-                                          onChange={(e) => updateMemberStatus(item.id, member, e.target.value)}
-                                          className={`w-full appearance-none ${config.bg} border-2 ${config.border} ${config.color} text-sm font-black px-4 py-3.5 rounded-2xl outline-none cursor-pointer transition-all hover:brightness-95 shadow-sm`}
-                                        >
-                                          <option value="未上傳">未上傳</option>
-                                          <option value="已上傳">已上傳</option>
-                                          <option value="待修正">待修正</option>
-                                          <option value="已修正">已修正</option>
-                                          <option value="通過">通過</option>
-                                          <option value="無">無</option>
-                                        </select>
-                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-30">
-                                          <ChevronDown size={14} />
-                                        </div>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
+        .guideline-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            animation: fadeIn 0.2s ease-out;
+        }
 
-                            <div className="space-y-5">
-                              <div className="flex items-center gap-3 text-slate-700 font-black text-sm uppercase tracking-widest">
-                                <MessageSquare size={22} className="text-indigo-600" /> 補件提醒與審核意見
-                              </div>
-                              <div className="relative">
-                                <textarea 
-                                  className="w-full bg-amber-50 border-2 border-amber-200 rounded-[2.5rem] p-8 text-base text-slate-700 font-bold placeholder-slate-400 focus:ring-4 focus:ring-amber-200 focus:border-amber-400 outline-none transition-all min-h-[140px] shadow-inner"
-                                  placeholder="在此輸入對成員資料的具體反饋..."
-                                  value={item.adminComment}
-                                  onChange={(e) => updateText(item.id, 'adminComment', e.target.value)}
-                                />
-                                <div className="absolute -top-4 right-10 bg-amber-300 text-amber-900 text-xs font-black px-4 py-1.5 rounded-full shadow-md uppercase tracking-widest">彙整反饋</div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
+        .guideline-overlay.active {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
 
-                        {/* 下層：準備指南 (三列式摺疊設計 - 全空白) */}
-                        <div className="p-8 lg:p-12 bg-slate-50 border-t border-slate-200">
-                          <div className="bg-indigo-50 border-2 border-indigo-100 rounded-[2rem] p-8 space-y-6 shadow-sm">
-                             <div className="flex items-center justify-between border-b border-indigo-100 pb-4 mb-4">
-                               <div className="flex items-center gap-3 text-indigo-800 font-black text-xl uppercase tracking-widest">
-                                 <Map size={26} className="text-indigo-500" /> 準備指南
-                               </div>
-                               <span className="text-[10px] font-black text-indigo-400 bg-white px-3 py-1 rounded-full border border-indigo-100 uppercase tracking-tighter">Guidelines</span>
-                             </div>
-                             
-                             <div className="space-y-4">
-                                <div className="group">
-                                  <button onClick={() => toggleGuideRow(item.id, 'core')} className="w-full flex items-center justify-between bg-white p-5 rounded-2xl border border-indigo-100 hover:border-indigo-400 hover:shadow-md transition-all">
-                                    <div className="flex items-center gap-3 text-indigo-700 font-black text-base uppercase tracking-wide">
-                                      <FileSearch size={20} className="text-indigo-400" /> 應提供的核心佐證資料
-                                    </div>
-                                    <div className="text-indigo-300">{expandedGuideRows[`${item.id}-core`] ? <ChevronDown size={20} /> : <ChevronRight size={20} />}</div>
-                                  </button>
-                                  {expandedGuideRows[`${item.id}-core`] && (
-                                    <div className="mt-2 p-4 bg-white/50 rounded-2xl border border-indigo-100">
-                                      <AutoResizeTextarea className="w-full text-base text-slate-600 leading-relaxed bg-white border border-indigo-50 p-6 rounded-xl outline-none focus:ring-4 focus:ring-indigo-100 transition-all shadow-inner font-medium h-auto" value={item.guide?.core} onChange={(e) => updateGuide(item.id, 'core', e.target.value)} placeholder="在此輸入核心佐證資料紀錄..." />
-                                    </div>
-                                  )}
-                                </div>
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
 
-                                <div className="group">
-                                  <button onClick={() => toggleGuideRow(item.id, 'writing')} className="w-full flex items-center justify-between bg-white p-5 rounded-2xl border border-indigo-100 hover:border-indigo-400 hover:shadow-md transition-all">
-                                    <div className="flex items-center gap-3 text-indigo-700 font-black text-base uppercase tracking-wide">
-                                      <Edit3 size={20} className="text-indigo-400" /> 說明內容的撰寫要點
-                                    </div>
-                                    <div className="text-indigo-300">{expandedGuideRows[`${item.id}-writing`] ? <ChevronDown size={20} /> : <ChevronRight size={20} />}</div>
-                                  </button>
-                                  {expandedGuideRows[`${item.id}-writing`] && (
-                                    <div className="mt-2 p-4 bg-white/50 rounded-2xl border border-indigo-100">
-                                      <AutoResizeTextarea className="w-full text-base text-slate-600 leading-relaxed bg-white border border-indigo-50 p-6 rounded-xl outline-none focus:ring-4 focus:ring-indigo-100 transition-all shadow-inner font-medium h-auto" value={item.guide?.writing} onChange={(e) => updateGuide(item.id, 'writing', e.target.value)} placeholder="在此輸入說明內容撰寫要點紀錄..." />
-                                    </div>
-                                  )}
-                                </div>
+        .guideline-modal {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            width: 95%;
+            height: 95%;
+            max-width: 1400px;
+            display: flex;
+            flex-direction: column;
+            animation: slideUp 0.3s ease-out;
+            overflow: hidden;
+        }
 
-                                <div className="group">
-                                  <button onClick={() => toggleGuideRow(item.id, 'presentation')} className="w-full flex items-center justify-between bg-white p-5 rounded-2xl border border-indigo-100 hover:border-indigo-400 hover:shadow-md transition-all">
-                                    <div className="flex items-center gap-3 text-indigo-700 font-black text-base uppercase tracking-wide">
-                                      <Lightbulb size={20} className="text-indigo-400" /> 資料呈現建議
-                                    </div>
-                                    <div className="text-indigo-300">{expandedGuideRows[`${item.id}-presentation`] ? <ChevronDown size={20} /> : <ChevronRight size={20} />}</div>
-                                  </button>
-                                  {expandedGuideRows[`${item.id}-presentation`] && (
-                                    <div className="mt-2 p-4 bg-white/50 rounded-2xl border border-indigo-100">
-                                      <AutoResizeTextarea className="w-full text-base text-slate-600 leading-relaxed bg-white border border-indigo-50 p-6 rounded-xl outline-none focus:ring-4 focus:ring-indigo-100 transition-all shadow-inner font-medium h-auto" value={item.guide?.presentation} onChange={(e) => updateGuide(item.id, 'presentation', e.target.value)} placeholder="在此輸入資料呈現建議紀錄..." />
-                                    </div>
-                                  )}
-                                </div>
-                             </div>
-                          </div>
+        @keyframes slideUp {
+            from {
+                transform: translateY(30px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
 
-                          {/* 儲存按鈕列 */}
-                          <div className="mt-8 flex justify-end">
-                            <button 
-                              onClick={() => handleSave(item.id)}
-                              disabled={savingId === item.id}
-                              className={`flex items-center gap-2 px-10 py-4 rounded-2xl font-black text-base transition-all shadow-xl active:scale-95 ${
-                                savingId === item.id 
-                                  ? 'bg-emerald-500 text-white shadow-emerald-200' 
-                                  : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-indigo-200'
-                              }`}
-                            >
-                              {savingId === item.id ? <><CheckCircle size={22} /> 資料已存檔</> : <><Save size={22} /> 儲存本項指標資料</>}
-                            </button>
-                          </div>
-                        </div>
+        .guideline-header {
+            padding: 20px 24px;
+            border-bottom: 2px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            flex-shrink: 0;
+        }
 
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
+        .guideline-title-section {
+            flex: 1;
+        }
 
-        <footer className="text-center py-20 text-slate-400 text-xs font-black tracking-[0.4em] border-t border-slate-200 mt-20 uppercase">
-          專業且嚴謹的特教行政管理 · [ NO PII ] 數據隱私保障系統
-        </footer>
+        .guideline-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #1a3a5a;
+            margin: 0 0 8px 0;
+            line-height: 1.4;
+        }
+
+        .guideline-subtitle {
+            font-size: 13px;
+            color: #666;
+            margin: 0;
+            line-height: 1.6;
+            background: #f5f5f5;
+            padding: 8px 12px;
+            border-radius: 4px;
+        }
+
+        .guideline-close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+            padding: 0;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.2s;
+            margin-left: 16px;
+            flex-shrink: 0;
+        }
+
+        .guideline-close-btn:hover {
+            color: #2a9fd8;
+        }
+
+        .guideline-content-wrapper {
+            flex: 1;
+            overflow-y: auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 16px;
+            padding: 24px;
+            scrollbar-width: none;
+        }
+
+        .guideline-content-wrapper::-webkit-scrollbar {
+            display: none;
+        }
+
+        .guideline-column {
+            display: flex;
+            flex-direction: column;
+            background: #f9fafb;
+            border-radius: 8px;
+            padding: 16px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .guideline-column-label {
+            font-size: 13px;
+            font-weight: 700;
+            color: #1a3a5a;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 12px;
+            background: #e3f2fd;
+            border-radius: 6px;
+        }
+
+        .guideline-textarea {
+            flex: 1;
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 13px;
+            font-family: 'Segoe UI', 'Microsoft JhengHei', Tahoma, sans-serif;
+            resize: none;
+            transition: border-color 0.2s;
+            line-height: 1.6;
+        }
+
+        .guideline-textarea:focus {
+            outline: none;
+            border-color: #2a9fd8;
+            box-shadow: 0 0 6px rgba(42, 159, 216, 0.3);
+        }
+
+        .guideline-footer {
+            padding: 16px 24px;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            flex-shrink: 0;
+        }
+
+        .guideline-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .guideline-btn-save {
+            background: #2a9fd8;
+            color: white;
+        }
+
+        .guideline-btn-save:hover {
+            background: #1e7ba8;
+            box-shadow: 0 4px 12px rgba(42, 159, 216, 0.3);
+        }
+
+        .guideline-btn-cancel {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .guideline-btn-cancel:hover {
+            background: #d0d0d0;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 1024px) {
+            .stats-container {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 12px;
+            }
+
+            table {
+                font-size: 11px;
+            }
+
+            thead tr, tbody tr {
+                grid-template-columns: 3% 2% 11% 11% 15% 13% 8% 8% 8% 8% 7%;
+            }
+
+            .guideline-content-wrapper {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .filters-container {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .filter-group {
+                width: 100%;
+            }
+
+            .filter-select {
+                width: 100%;
+            }
+
+            .stats-container {
+                grid-template-columns: 1fr;
+            }
+
+            .guideline-modal {
+                width: 98%;
+                height: 98%;
+            }
+
+            thead tr, tbody tr {
+                grid-template-columns: 4% 3% 10% 10% 13% 12% 9% 9% 9% 9% 12%;
+            }
+        }
+    </style>
+  <style>@view-transition { navigation: auto; }</style>
+  <script src="https://cdn.tailwindcss.com" type="text/javascript"></script>
+ </head>
+ <body>
+  <div id="guideline-overlay" class="guideline-overlay" onclick="closeGuidelineModal(event)"></div>
+  <div class="app-wrapper">
+   <div class="header">
+    <h1>📊 特教評鑑資料彙整追蹤系統</h1>
+    <p>依據教育部評鑑指標、參考效標與核對資料的完整追蹤管理平台</p>
+   </div>
+   <div class="content-wrapper">
+    <div class="stats-container">
+     <div class="stat-card">
+      <div class="stat-label">
+       總評鑑項目
       </div>
+      <div class="stat-value" id="total-items">
+       0
+      </div>
+     </div>
+     <div class="stat-card" style="border-left-color: #28a745;">
+      <div class="stat-label">
+       已完成
+      </div>
+      <div class="stat-value" id="completed-items" style="color: #28a745;">
+       0
+      </div>
+     </div>
+     <div class="stat-card" style="border-left-color: #ffc107;">
+      <div class="stat-label">
+       進行中
+      </div>
+      <div class="stat-value" id="progress-items" style="color: #ffc107;">
+       0
+      </div>
+     </div>
+     <div class="stat-card" style="border-left-color: #dc3545;">
+      <div class="stat-label">
+       未完成
+      </div>
+      <div class="stat-value" id="pending-items" style="color: #dc3545;">
+       0
+      </div>
+     </div>
     </div>
-  );
-};
+    <div class="filters-container">
+     <div class="filter-group"><span class="filter-label">篩選類別：</span> <select class="filter-select" id="category-filter" onchange="filterTable()"> <option value="">全部類別</option> <option value="expand-all">📂 全部展開</option> <option value="一、 行政運作與融合教育">一、行政運作與融合教育</option> <option value="二、 教育計畫與團隊合作">二、教育計畫與團隊合作</option> <option value="三、 課程教學與專業發展">三、課程教學與專業發展</option> <option value="四、 支持服務與輔導轉銜">四、支持服務與輔導轉銜</option> </select>
+     </div>
+     <div class="filter-group"><span class="filter-label">篩選狀態：</span> <select class="filter-select" id="status-filter" onchange="filterTable()"> <option value="">全部狀態</option> <option value="未完成">未完成</option> <option value="進行中">進行中</option> <option value="已完成">已完成</option> </select>
+     </div>
+    </div>
+    <div class="table-container">
+     <div class="table-wrapper">
+      <table>
+       <thead>
+        <tr>
+         <th>序</th>
+         <th></th>
+         <th>評鑑指標</th>
+         <th>參考效標</th>
+         <th>檢核資料(自評表)</th>
+         <th>準備資料</th>
+         <th>綉惠</th>
+         <th>孟筑</th>
+         <th>芳玉</th>
+         <th>尹俞</th>
+         <th>進度</th>
+        </tr>
+        <tr>
+         <th>
+          <div class="col-index-note">
+           項目
+          </div></th>
+         <th>
+          <div class="col-index-note">
+           編輯
+          </div></th>
+         <th>
+          <div class="col-index-note">
+           指標名稱
+          </div></th>
+         <th>
+          <div class="col-index-note">
+           參考標準
+          </div></th>
+         <th>
+          <div class="col-index-note">
+           自評項目
+          </div></th>
+         <th>
+          <div class="col-index-note">
+           補充說明
+          </div></th>
+         <th>
+          <div class="col-index-note">
+           進度
+          </div></th>
+         <th>
+          <div class="col-index-note">
+           進度
+          </div></th>
+         <th>
+          <div class="col-index-note">
+           進度
+          </div></th>
+         <th>
+          <div class="col-index-note">
+           進度
+          </div></th>
+         <th>
+          <div class="col-index-note">
+           項目進度
+          </div></th>
+        </tr>
+       </thead>
+       <tbody id="table-body">
+       </tbody>
+      </table>
+     </div>
+    </div>
+   </div>
+  </div>
+  <script>
+        let allData = [];
+        let guidelineDataMap = new Map();
+        let staffStatusMap = new Map();
+        let filteredData = [];
+        let currentEditingReferenceId = null;
+        let isSavingGuideline = false;
 
-export default App;
+        const staffNames = ["xiuhui", "mengzhu", "fangyu", "yinyu"];
+        const staffLabels = ["綉惠", "孟筑", "芳玉", "尹俞"];
+
+        const statusOptions = [
+            { value: "未上傳", label: "未上傳", class: "status-select-未上傳" },
+            { value: "已上傳", label: "已上傳", class: "status-select-已上傳" },
+            { value: "待修正", label: "待修正", class: "status-select-待修正" },
+            { value: "已修正", label: "已修正", class: "status-select-已修正" },
+            { value: "通過", label: "通過", class: "status-select-通過" },
+            { value: "無", label: "無", class: "status-select-無" }
+        ];
+
+        const evaluationData = [
+            {
+                id: "1-1",
+                category: "一、 行政運作與融合教育",
+                categoryNum: "1",
+                indicator: "1-4 根據學生學習需求提供合理調整措施",
+                indicatorId: "1-4",
+                referenceStandardId: "1-4-1",
+                referenceStandard: "1-4-1 合理調整運作機制，包括申請與協商流程。",
+                checklistData: "□ 合理調整申請與協商程序，須提出實施計畫、流程圖。",
+                preparationData: "IEP",
+                status: "未完成",
+                supplementaryNotes: ""
+            },
+            {
+                id: "1-2",
+                category: "一、 行政運作與融合教育",
+                categoryNum: "1",
+                indicator: "1-4 根據學生學習需求提供合理調整措施",
+                indicatorId: "1-4",
+                referenceStandardId: "1-4-2",
+                referenceStandard: "1-4-2 提供學生學習所需之合理調整措施並定期檢討。",
+                checklistData: "□ 合理調整措施及檢討情形紀錄（明確寫出合理調整措施若無法避免附）。",
+                preparationData: "IEP & 會議紀錄",
+                status: "未完成"
+            },
+            {
+                id: "1-3",
+                category: "一、 行政運作與融合教育",
+                categoryNum: "1",
+                indicator: "1-5 校長協調相關資源，提供教師支持",
+                indicatorId: "1-5",
+                referenceStandardId: "1-5-1",
+                referenceStandard: "1-5-1 校長協調校內相關單位提供教師及特殊教育學生所需人力資源協助。",
+                checklistData: "□ 校長協調人力資源會議紀錄，具體單位協調及具體事項說明。",
+                preparationData: "IEP 會議紀錄、相關會議紀錄",
+                status: "未完成"
+            },
+            {
+                id: "1-4",
+                category: "一、 行政運作與融合教育",
+                categoryNum: "1",
+                indicator: "1-6 建立普通與特殊教育交流合作機制",
+                indicatorId: "1-6",
+                referenceStandardId: "1-6-1",
+                referenceStandard: "1-6-1 學校應建立學校內普特教師交流合作相關機制並確實執行。",
+                checklistData: "□ 學校建立交流合作機制之相關資料及執行紀錄。",
+                preparationData: "校內群組截圖、line 圖檔、個案會議與特師參與普班活動",
+                status: "未完成"
+            },
+            {
+                id: "2-1",
+                category: "二、 教育計畫與團隊合作",
+                categoryNum: "2",
+                indicator: "2-1 建立校學估轉銜流程，依規定轉介鑑定",
+                indicatorId: "2-1",
+                referenceStandardId: "2-1-2",
+                referenceStandard: "2-1-2 在轉介身心障礙學生鑑定前，能提供轉介前介入。",
+                checklistData: "□ 轉介前介入及實施成效，如：一般教學輔導介入、三級輔導相關資料等。",
+                preparationData: "個案會議紀錄",
+                status: "未完成"
+            },
+            {
+                id: "2-2",
+                category: "二、 教育計畫與團隊合作",
+                categoryNum: "2",
+                indicator: "2-2 以專業團隊合作方式提供服務",
+                indicatorId: "2-2",
+                referenceStandardId: "2-2-1",
+                referenceStandard: "2-2-1 學校根據學生障礙類別與殊需求組成專業團隊，另由校內教師負責推動。",
+                checklistData: "□ 專業團隊組員名單（含主責教員名單，至少班級 2 份）。",
+                preparationData: "IEP",
+                status: "未完成"
+            },
+            {
+                id: "2-3",
+                category: "二、 教育計畫與團隊合作",
+                categoryNum: "2",
+                indicator: "2-2 以專業團隊合作方式提供服務",
+                indicatorId: "2-2",
+                referenceStandardId: "2-2-2",
+                referenceStandard: "2-2-2 專業團隊成員提供服務前告知，服務後告知其結果。",
+                checklistData: "□ 取得同意書、邀請參加佐證資料及會議紀錄。",
+                preparationData: "IEP & 會議紀錄、相關會議",
+                status: "未完成"
+            },
+            {
+                id: "2-4",
+                category: "二、 教育計畫與團隊合作",
+                categoryNum: "2",
+                indicator: "2-3 個別化教育計畫參與人員符合規定",
+                indicatorId: "2-3",
+                referenceStandardId: "2-3-1",
+                referenceStandard: "2-3-1 學校依學生特殊需求透過團隊合作討論訂定 IEP。",
+                checklistData: "□ 訂定 IEP 之簽到表、會議紀錄等。",
+                preparationData: "IEP & 會議紀錄",
+                status: "未完成"
+            },
+            {
+                id: "2-5",
+                category: "二、 教育計畫與團隊合作",
+                categoryNum: "2",
+                indicator: "2-4 個別化教育計畫訂定及內容符合規定",
+                indicatorId: "2-4",
+                referenceStandardId: "2-4-1",
+                referenceStandard: "2-4-1 IEP 應於開學前訂定、新生於入學後一個月內訂定。",
+                checklistData: "□ 訂定及檢討 IEP 之簽到表、會議紀錄等。",
+                preparationData: "IEP & 會議紀錄",
+                status: "未完成"
+            },
+            {
+                id: "2-6",
+                category: "二、 教育計畫與團隊合作",
+                categoryNum: "2",
+                indicator: "2-4 個別化教育計畫訂定及內容符合規定",
+                indicatorId: "2-4",
+                referenceStandardId: "2-4-2",
+                referenceStandard: "2-4-2 每位特殊教育學生均有 IEP，且內容項目符合規定。",
+                checklistData: "□ 呈提整份 IEP，內容項目符合特殊教育法施行細則規定。",
+                preparationData: "IEP",
+                status: "未完成"
+            },
+            {
+                id: "3-1",
+                category: "三、 課程教學與專業發展",
+                categoryNum: "3",
+                indicator: "3-1 特殊教育課程規劃符合法規及需求",
+                indicatorId: "3-1",
+                referenceStandardId: "3-1-1",
+                referenceStandard: "3-1-1 特殊教育課程應依學生需求彈性調整內容、歷程、環境、評量等。",
+                checklistData: "□ 由特推會審議特教課程規劃。",
+                preparationData: "課程計畫、學生特殊教育需求與課程調整規劃彙整表、課表",
+                status: "未完成"
+            },
+            {
+                id: "3-2",
+                category: "三、 課程教學與專業發展",
+                categoryNum: "3",
+                indicator: "3-1 特殊教育課程規劃符合法規及需求",
+                indicatorId: "3-1",
+                referenceStandardId: "3-1-2",
+                referenceStandard: "3-1-2 學校分散式資源班課程領域及課程排課應符合學生需求。",
+                checklistData: "□ 學校排課範圍及計畫提會議紀錄或行政簽文等記錄。",
+                preparationData: "課表",
+                status: "未完成"
+            },
+            {
+                id: "3-3",
+                category: "三、 課程教學與專業發展",
+                categoryNum: "3",
+                indicator: "3-3 落實特殊教育學生課程調整",
+                indicatorId: "3-3",
+                referenceStandardId: "3-3-1",
+                referenceStandard: "3-3-1 學校分散式資源班：普通班教師參與 IEP 討論，並依結果執行課程調整。",
+                checklistData: "□ 普通班教師參與 IEP 討論及調整方式之會議紀錄。",
+                preparationData: "IEP & 會議紀錄、成績單、普師填寫教學成效電子表單",
+                status: "未完成"
+            },
+            {
+                id: "4-1",
+                category: "四、 支持服務與輔導轉銜",
+                categoryNum: "4",
+                indicator: "4-1 根據學生能力及需求提供支持服務",
+                indicatorId: "4-1",
+                referenceStandardId: "4-1-1",
+                referenceStandard: "4-1-1 支持服務及評量調整，由 IEP 會議及特推會審議，並載明於 IEP。",
+                checklistData: "□ IEP 第二項：學生所需特殊教育、相關服務及支持策略。",
+                preparationData: "IEP 會議紀錄、特推會議紀錄",
+                status: "未完成"
+            },
+            {
+                id: "4-2",
+                category: "四、 支持服務與輔導轉銜",
+                categoryNum: "4",
+                indicator: "4-1 根據學生能力及需求提供支持服務",
+                indicatorId: "4-1",
+                referenceStandardId: "4-1-2",
+                referenceStandard: "4-1-2 提供身心障礙學生所需支持服務及評量調整措施。",
+                checklistData: "□ 學校提供支持服務及評量調整之具體作為。",
+                preparationData: "IEP",
+                status: "未完成"
+            },
+            {
+                id: "4-3",
+                category: "四、 支持服務與輔導轉銜",
+                categoryNum: "4",
+                indicator: "4-3 建立輔導及特教合作機制",
+                indicatorId: "4-3",
+                referenceStandardId: "4-3-2",
+                referenceStandard: "4-3-2 學校整合校內輔導專業人員，提供輔導需求學生輔導服務及資源連結。",
+                checklistData: "□ 學校接受輔導服務之特殊教育學生資料及相關資料。",
+                preparationData: "學校含有輔導特生的相關紀錄",
+                status: "未完成"
+            },
+            {
+                id: "4-4",
+                category: "四、 支持服務與輔導轉銜",
+                categoryNum: "4",
+                indicator: "4-3 建立輔導及特教合作機制",
+                indicatorId: "4-3",
+                referenceStandardId: "4-3-3",
+                referenceStandard: "4-3-3 個案會議納入行政人員、普通教師、特教教師並邀請家長參與。",
+                checklistData: "□ 個案會議佐證資料（簽到表及邀請家長參加通知資料等）。",
+                preparationData: "個案會議紀錄",
+                status: "未完成"
+            },
+            {
+                id: "4-5",
+                category: "四、 支持服務與輔導轉銜",
+                categoryNum: "4",
+                indicator: "4-4 根據學生需求提供轉銜輔導服務",
+                indicatorId: "4-4",
+                referenceStandardId: "4-4-1",
+                referenceStandard: "4-4-1 辦理跨教育階段或離校轉銜輔導服務。",
+                checklistData: "□ 跨階段或離校轉銜輔導服務辦理情形。",
+                preparationData: "跨階段/轉學轉銜輔導服務",
+                status: "未完成"
+            },
+            {
+                id: "4-6",
+                category: "四、 支持服務與輔導轉銜",
+                categoryNum: "4",
+                indicator: "4-5 依法開展轉銜會議與通報與追蹤",
+                indicatorId: "4-5",
+                referenceStandardId: "4-5-1",
+                referenceStandard: "4-5-1 定期程邀請人員按期開轉銜會議，填寫特教通報及轉銜/接收相間紀錄。",
+                checklistData: "□ 學生轉銜會議紀錄及追蹤輔導紀錄、通報網轉銜/接收相間紀錄。",
+                preparationData: "轉銜會議",
+                status: "未完成"
+            }
+        ];
+
+        const dataHandler = {
+            onDataChanged(data) {
+                renderTable();
+                updateStats();
+            }
+        };
+
+        async function initializeApp() {
+            allData = evaluationData.map(item => ({...item}));
+            filteredData = [...allData];
+            
+            if (window.dataSdk) {
+                const initResult = await window.dataSdk.init(dataHandler);
+                if (!initResult.isOk) {
+                    console.error("Failed to initialize data SDK");
+                }
+            } else {
+                renderTable();
+                updateStats();
+            }
+        }
+
+        function getCategoryBadgeClass(categoryNum) {
+            const badges = {
+                "1": "cat-1-badge",
+                "2": "cat-2-badge",
+                "3": "cat-3-badge",
+                "4": "cat-4-badge"
+            };
+            return badges[categoryNum] || "cat-1-badge";
+        }
+
+        function renderStatusSelect(referenceStandardId, staffName, staffLabel) {
+            const staffStatuses = staffStatusMap.get(referenceStandardId) || {};
+            const currentStatus = staffStatuses[staffName] || "未上傳";
+            
+            let optionsHtml = statusOptions.map(option => 
+                `<option value="${option.value}" ${currentStatus === option.value ? 'selected' : ''}>${option.label}</option>`
+            ).join('');
+
+            return `
+                <select class="status-select status-select-${currentStatus}" onchange="updateStaffStatus('${referenceStandardId}', '${staffName}', this.value)">
+                    ${optionsHtml}
+                </select>
+            `;
+        }
+
+        function getProgressPercentage(status) {
+            const progressMap = {
+                "未完成": 0,
+                "進行中": 50,
+                "已完成": 100
+            };
+            return progressMap[status] || 0;
+        }
+
+        function getProgressClass(percentage) {
+            if (percentage === 0) return "progress-0";
+            if (percentage === 50) return "progress-50";
+            if (percentage === 100) return "progress-100";
+            return "progress-0";
+        }
+
+        function renderProgressSelect(itemId, currentStatus) {
+            const percentage = getProgressPercentage(currentStatus);
+            const progressClass = getProgressClass(percentage);
+            
+            return `
+                <div>
+                    <select class="progress-select progress-select-${currentStatus}" data-item-id="${itemId}" onchange="updateItemProgress(this)">
+                        <option value="未完成" ${currentStatus === '未完成' ? 'selected' : ''}>未完成</option>
+                        <option value="進行中" ${currentStatus === '進行中' ? 'selected' : ''}>進行中</option>
+                        <option value="已完成" ${currentStatus === '已完成' ? 'selected' : ''}>已完成</option>
+                    </select>
+                    <div class="progress-bar-container" style="margin-top: 6px;">
+                        <div class="progress-bar-fill ${progressClass}" data-item-id="${itemId}"></div>
+                        <div class="progress-percent">${percentage}%</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function updateItemProgress(selectElement) {
+            const itemId = selectElement.getAttribute('data-item-id');
+            const newStatus = selectElement.value;
+            const percentage = getProgressPercentage(newStatus);
+            const progressClass = getProgressClass(percentage);
+            
+            // 更新 select 的樣式
+            selectElement.className = `progress-select progress-select-${newStatus}`;
+            
+            // 找到進度條容器（select 的下一個兄弟元素）
+            const progressContainer = selectElement.nextElementSibling;
+            if (progressContainer) {
+                const progressBar = progressContainer.querySelector('.progress-bar-fill');
+                const progressPercent = progressContainer.querySelector('.progress-percent');
+                
+                if (progressBar) {
+                    progressBar.className = `progress-bar-fill ${progressClass}`;
+                }
+                
+                if (progressPercent) {
+                    progressPercent.textContent = `${percentage}%`;
+                }
+            }
+            
+            // 找到該項目並更新資料
+            const item = allData.find(d => d.id === itemId);
+            if (item) {
+                const oldStatus = item.status;
+                item.status = newStatus;
+                
+                // 找到對應的表格行並更新背景
+                const tbody = document.getElementById("table-body");
+                const rows = tbody.getElementsByTagName("tr");
+                const displayData = filteredData.length > 0 ? filteredData : allData;
+                
+                for (let i = 0; i < rows.length; i++) {
+                    if (displayData[i].id === itemId) {
+                        if (newStatus === "已完成") {
+                            rows[i].classList.add("row-completed");
+                        } else {
+                            rows[i].classList.remove("row-completed");
+                        }
+                        break;
+                    }
+                }
+                
+                // 如果狀態改變了，重新計算統計數據
+                if (oldStatus !== newStatus) {
+                    updateStats();
+                }
+            }
+        }
+
+        function updateSupplementaryNotes(itemId, notes) {
+            const item = allData.find(d => d.id === itemId);
+            if (item) {
+                item.supplementaryNotes = notes;
+            }
+        }
+
+        async function updateStaffStatus(referenceStandardId, staffName, newStatus) {
+            event.target.className = `status-select status-select-${newStatus}`;
+            
+            if (!staffStatusMap.has(referenceStandardId)) {
+                staffStatusMap.set(referenceStandardId, {});
+            }
+            
+            const statusData = staffStatusMap.get(referenceStandardId);
+            statusData[staffName] = newStatus;
+
+            if (window.dataSdk) {
+                const dataToSave = {
+                    referenceStandardId: referenceStandardId,
+                    [staffName + 'Status']: newStatus
+                };
+                
+                const createResult = await window.dataSdk.create(dataToSave);
+                if (!createResult.isOk) {
+                    console.error("Failed to save staff status");
+                }
+            }
+        }
+
+        function openGuidelineModal(referenceStandardId, referenceStandard, indicator) {
+            currentEditingReferenceId = referenceStandardId;
+            const guidelines = guidelineDataMap.get(referenceStandardId) || { 
+                coreEvidence: "", 
+                writingPoints: "", 
+                presentationSuggestion: "" 
+            };
+            
+            const overlay = document.getElementById('guideline-overlay');
+            overlay.innerHTML = `
+                <div class="guideline-modal" onclick="event.stopPropagation()">
+                    <div class="guideline-header">
+                        <div class="guideline-title-section">
+                            <h2 class="guideline-title">${referenceStandard}</h2>
+                            <p class="guideline-subtitle">${indicator}</p>
+                        </div>
+                        <button class="guideline-close-btn" onclick="closeGuidelineModal()">✕</button>
+                    </div>
+                    <div class="guideline-content-wrapper">
+                        <div class="guideline-column">
+                            <div class="guideline-column-label">🔍 應提供的核心佐證資料</div>
+                            <textarea class="guideline-textarea" id="coreEvidence" placeholder="填入應提供的核心佐證資料...">${guidelines.coreEvidence}</textarea>
+                        </div>
+                        <div class="guideline-column">
+                            <div class="guideline-column-label">✍️ 說明內容的撰寫要點</div>
+                            <textarea class="guideline-textarea" id="writingPoints" placeholder="填入說明內容的撰寫要點...">${guidelines.writingPoints}</textarea>
+                        </div>
+                        <div class="guideline-column">
+                            <div class="guideline-column-label">💡 資料呈現建議</div>
+                            <textarea class="guideline-textarea" id="presentationSuggestion" placeholder="填入資料呈現建議...">${guidelines.presentationSuggestion}</textarea>
+                        </div>
+                    </div>
+                    <div class="guideline-footer">
+                        <button class="guideline-btn guideline-btn-cancel" onclick="closeGuidelineModal()">取消</button>
+                        <button class="guideline-btn guideline-btn-save" id="save-guideline-btn" onclick="saveGuidelineModal()">保存</button>
+                    </div>
+                </div>
+            `;
+            
+            overlay.classList.add('active');
+        }
+
+        function closeGuidelineModal(event) {
+            if (event && event.target.id !== 'guideline-overlay') {
+                return;
+            }
+            const overlay = document.getElementById('guideline-overlay');
+            overlay.classList.remove('active');
+            currentEditingReferenceId = null;
+        }
+
+        async function saveGuidelineModal() {
+            if (!currentEditingReferenceId || isSavingGuideline) return;
+
+            const saveBtn = document.getElementById('save-guideline-btn');
+            const originalText = saveBtn.textContent;
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<span class="loading-spinner"></span> 保存中...';
+            isSavingGuideline = true;
+
+            const guidelineData = {
+                referenceStandardId: currentEditingReferenceId,
+                indicatorId: currentEditingReferenceId.substring(0, currentEditingReferenceId.lastIndexOf('-')),
+                coreEvidence: document.getElementById('coreEvidence').value,
+                writingPoints: document.getElementById('writingPoints').value,
+                presentationSuggestion: document.getElementById('presentationSuggestion').value
+            };
+
+            guidelineDataMap.set(currentEditingReferenceId, {
+                coreEvidence: guidelineData.coreEvidence,
+                writingPoints: guidelineData.writingPoints,
+                presentationSuggestion: guidelineData.presentationSuggestion
+            });
+
+            if (window.dataSdk) {
+                const result = await window.dataSdk.create(guidelineData);
+                if (!result.isOk) {
+                    saveBtn.textContent = '保存失敗，請重試';
+                    saveBtn.style.background = '#dc3545';
+                    setTimeout(() => {
+                        saveBtn.disabled = false;
+                        saveBtn.textContent = originalText;
+                        saveBtn.style.background = '#2a9fd8';
+                        isSavingGuideline = false;
+                    }, 2000);
+                    return;
+                }
+            }
+
+            isSavingGuideline = false;
+            closeGuidelineModal();
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById("table-body");
+            tbody.innerHTML = "";
+
+            const displayData = filteredData.length > 0 ? filteredData : allData;
+            displayData.forEach((item, index) => {
+                const row = document.createElement("tr");
+                if (item.status === "已完成") {
+                    row.classList.add("row-completed");
+                }
+
+                const badgeClass = getCategoryBadgeClass(item.categoryNum);
+                
+                let staffCellsHtml = "";
+                staffNames.forEach((staffName, idx) => {
+                    staffCellsHtml += `<td>${renderStatusSelect(item.referenceStandardId, staffName, staffLabels[idx])}</td>`;
+                });
+
+                row.innerHTML = `
+                    <td>
+                        <div class="col-index">${index + 1}</div>
+                    </td>
+                    <td>
+                        <button class="edit-btn-small" onclick="openGuidelineModal('${item.referenceStandardId}', '${item.referenceStandard.replace(/'/g, "\\'")}', '${item.indicator.replace(/'/g, "\\'")}')" title="編輯準備指南">
+                            ✏️ 編輯
+                        </button>
+                    </td>
+                    <td>
+                        <div class="category-badge ${badgeClass}">${item.category.substring(0, 3)}</div>
+                        <div class="indicator-text">${item.indicator}</div>
+                    </td>
+                    <td>
+                        <div class="reference-text">${item.referenceStandard}</div>
+                    </td>
+                    <td>
+                        <div class="checklist-text">${item.checklistData}</div>
+                    </td>
+                    <td>
+                        <div class="preparation-text">${item.preparationData}</div>
+                        <div class="supplementary-section">
+                            <textarea class="supplementary-textarea" placeholder="補充說明..." onchange="updateSupplementaryNotes('${item.id}', this.value)">${item.supplementaryNotes || ''}</textarea>
+                        </div>
+                    </td>
+                    ${staffCellsHtml}
+                    <td>
+                        ${renderProgressSelect(item.id, item.status)}
+                    </td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+        }
+
+        function filterTable() {
+            const categoryFilter = document.getElementById("category-filter").value;
+            const statusFilter = document.getElementById("status-filter").value;
+
+            // 重置為全部類別並更新統計
+            if (categoryFilter === "expand-all") {
+                document.getElementById("category-filter").value = "";
+                filteredData = [...allData];
+            } else if (categoryFilter === "" && statusFilter === "") {
+                filteredData = [...allData];
+            } else {
+                filteredData = allData.filter(item => {
+                    let matchCategory = true;
+                    let matchStatus = true;
+                    
+                    // 精確匹配類別
+                    if (categoryFilter) {
+                        matchCategory = item.category.trim() === categoryFilter.trim();
+                    }
+                    
+                    // 精確匹配狀態
+                    if (statusFilter) {
+                        matchStatus = item.status === statusFilter;
+                    }
+                    
+                    return matchCategory && matchStatus;
+                });
+            }
+
+            renderTable();
+            updateStats();
+        }
+
+        function updateStats() {
+            // 統計面板總是顯示全部資料的統計
+            const total = allData.length;
+            const completed = allData.filter(d => d.status === "已完成").length;
+            const inProgress = allData.filter(d => d.status === "進行中").length;
+            const pending = allData.filter(d => d.status === "未完成").length;
+
+            document.getElementById("total-items").textContent = total;
+            document.getElementById("completed-items").textContent = completed;
+            document.getElementById("progress-items").textContent = inProgress;
+            document.getElementById("pending-items").textContent = pending;
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeGuidelineModal();
+            }
+        });
+
+        initializeApp();
+    </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c85cb5e055bf1cc',t:'MTc3MDE2MjI0Ny4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
